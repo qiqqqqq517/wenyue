@@ -7,6 +7,7 @@ import '../../domain/entities/anchors.dart';
 import '../../domain/entities/annotation.dart';
 import '../../services/text/text_document.dart';
 import '../reader_core.dart';
+import 'code_highlighter.dart';
 
 /// 高亮显示区间（文档字符流坐标）。
 class HighlightRange {
@@ -613,7 +614,7 @@ class _HighlightingController extends TextEditingController {
 
 // ---------------- 代码块 ----------------
 
-class _CodeBlockView extends StatelessWidget {
+class _CodeBlockView extends StatefulWidget {
   const _CodeBlockView({
     required this.code,
     required this.lang,
@@ -631,6 +632,68 @@ class _CodeBlockView extends StatelessWidget {
   final int base;
 
   @override
+  State<_CodeBlockView> createState() => _CodeBlockViewState();
+}
+
+class _CodeBlockViewState extends State<_CodeBlockView> {
+  late List<CodeToken> _tokens;
+
+  @override
+  void initState() {
+    super.initState();
+    _tokens = tokenizeCode(widget.code, language: widget.lang);
+  }
+
+  @override
+  void didUpdateWidget(covariant _CodeBlockView old) {
+    super.didUpdateWidget(old);
+    if (old.code != widget.code || old.lang != widget.lang) {
+      _tokens = tokenizeCode(widget.code, language: widget.lang);
+    }
+  }
+
+  TextStyle _tokenStyle(CodeTokenKind kind, ThemeData theme) {
+    final dark = theme.brightness == Brightness.dark;
+    return switch (kind) {
+      CodeTokenKind.keyword => TextStyle(
+          color: theme.colorScheme.primary,
+          fontWeight: FontWeight.w600,
+        ),
+      CodeTokenKind.string => TextStyle(
+          color: dark ? const Color(0xFF9CCC65) : const Color(0xFF2E7D32),
+        ),
+      CodeTokenKind.comment => TextStyle(
+          color: theme.colorScheme.outline,
+          fontStyle: FontStyle.italic,
+        ),
+      CodeTokenKind.number => TextStyle(
+          color: dark ? const Color(0xFFFFB74D) : const Color(0xFFB26A00),
+        ),
+      CodeTokenKind.plain => const TextStyle(),
+    };
+  }
+
+  List<InlineSpan> _spans(ThemeData theme) {
+    final code = widget.code;
+    final spans = <InlineSpan>[];
+    var cursor = 0;
+    for (final t in _tokens) {
+      if (t.start > cursor) {
+        spans.add(TextSpan(text: code.substring(cursor, t.start)));
+      }
+      spans.add(TextSpan(
+        text: code.substring(t.start, t.end),
+        style: _tokenStyle(t.kind, theme),
+      ));
+      cursor = t.end;
+    }
+    if (cursor < code.length) {
+      spans.add(TextSpan(text: code.substring(cursor)));
+    }
+    return spans;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
@@ -645,22 +708,24 @@ class _CodeBlockView extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (lang != null && lang!.isNotEmpty)
+            if (widget.lang != null && widget.lang!.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Text(
-                  lang!,
+                  widget.lang!,
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: theme.colorScheme.outline,
                   ),
                 ),
               ),
-            SelectableText(
-              code,
-              style: TextStyle(
-                fontFamily: 'Consolas',
-                fontSize: style.fontSize * 0.9,
-                height: style.lineHeight * 0.9,
+            SelectableText.rich(
+              TextSpan(
+                style: TextStyle(
+                  fontFamily: 'Consolas',
+                  fontSize: widget.style.fontSize * 0.9,
+                  height: widget.style.lineHeight * 0.9,
+                ),
+                children: _spans(theme),
               ),
             ),
           ],
@@ -719,15 +784,57 @@ class _ImageViewState extends State<_ImageView> {
               ),
             );
           }
-          return ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Image.memory(
-              data,
-              fit: BoxFit.contain,
-              errorBuilder: (_, _, _) => Text('图片解码失败：${widget.block.src}'),
+          return InkWell(
+            onTap: () => _openViewer(context, data),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.memory(
+                data,
+                fit: BoxFit.contain,
+                errorBuilder: (_, _, _) => Text('图片解码失败：${widget.block.src}'),
+              ),
             ),
           );
         },
+      ),
+    );
+  }
+
+  /// 全屏图片查看器：黑底、可缩放平移（InteractiveViewer），点背景关闭。
+  void _openViewer(BuildContext context, Uint8List data) {
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (ctx) => Dialog.fullscreen(
+        backgroundColor: Colors.transparent,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () => Navigator.pop(ctx),
+                child: InteractiveViewer(
+                  maxScale: 8,
+                  child: Center(
+                    child: Image.memory(data, fit: BoxFit.contain),
+                  ),
+                ),
+              ),
+            ),
+            SafeArea(
+              child: Align(
+                alignment: Alignment.topRight,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: IconButton(
+                    tooltip: '关闭',
+                    onPressed: () => Navigator.pop(ctx),
+                    icon: const Icon(Icons.close, color: Colors.white),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

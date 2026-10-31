@@ -1,6 +1,26 @@
 # 验收记录
 
-> 更新：2026-11-01（第五轮迭代 v1.4.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+> 更新：2026-11-01（第六轮迭代 v1.5.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+
+## 0.8 第六轮迭代验收（v1.5.0 渲染增强，2026-11-01）
+
+| 项目 | 结果 |
+| --- | --- |
+| `dart analyze` | 0 问题 |
+| `flutter test` | 63/63 通过（新增代码高亮 ×9） |
+| Windows Release 构建 | ✅ 经 `C:\wenyue` junction 构建并冒烟通过 |
+
+新增内容：
+
+- **代码块语法高亮**（`lib/readers/text/code_highlighter.dart`，纯 Dart 零依赖）：
+  四类着色（关键字/字符串/注释/数字）；语言表 dart/python/javascript/java/
+  kotlin/c/go/rust/sql/bash/yaml/json；别名归一（ts→js、py、kt、cpp→c、
+  yml、sh、golang、rs 等）；SQL 大小写不敏感；字符串转义与多行注释正确处理；
+  未知语言退化为通用扫描（字符串+注释+数字）。单测含转义引号、
+  字符串内 `//` 不误判、十六进制/科学计数法、token 区间不重叠等边界。
+- **图片全屏查看器**：正文图片点击打开 `Dialog.fullscreen`（黑底），
+  `InteractiveViewer` 缩放（8×）平移；点背景或右上 ✕ 关闭。
+- **版本**：`pubspec.yaml` → `1.5.0+5`。
 
 ## 0.7 第五轮迭代验收（v1.4.0 书库视图与标签筛选，2026-11-01）
 
