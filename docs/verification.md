@@ -1,6 +1,33 @@
 # 验收记录
 
-> 更新：2026-11-01（第二轮迭代）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+> 更新：2026-11-01（第三轮迭代 v1.2.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+
+## 0.5 第三轮迭代验收（v1.2.0 桌面化，2026-11-01）
+
+| 项目 | 结果 |
+| --- | --- |
+| `dart analyze` | 0 问题 |
+| `flutter test` | 35/35 通过（新增解码 ×7、快捷键 ×4） |
+| Windows Release 构建 | ✅ 经 `C:\wenyue` junction 构建成功并冒烟通过 |
+
+新增功能（代码级验证，交互验收待人工）：
+
+- **全局快捷键**（`lib/ui/shortcuts.dart` 的 `AppShortcutLayer` + `AppShortcuts`）：
+  - 书库：`Ctrl+O` 导入、`Ctrl+F` 搜索、`Ctrl+,` 设置；
+  - 阅读器：`Ctrl+F` 文内搜索、`Ctrl+B` 书签、`Ctrl+T` 大纲、
+    `Ctrl+=` / `Ctrl+-` / `Ctrl+0` 字号、`Esc` 关闭面板、
+    PDF 下 `←` / `→` 翻页（输入框聚焦或搜索面板打开时不拦截）。
+  - 单测 4 例：Ctrl+O、Ctrl+F、Esc 触发与未绑定键阴性对照。
+- **PDF 页码跳转**：工具栏页码输入框（`_pdfNavBar` + `_onPageSubmitted`），
+  非法输入恢复当前页；`PdfReaderViewState.goToPage/pageCount`。
+- **UTF-16 文本解码**（`decodeTextBytes`）：BOM 判定 LE/BE、代理对合并、
+  奇数尾部字节容错；单测 7 例（UTF-8/UTF-8 BOM/LE/BE/emoji/截断/GBK 回退）。
+- **窗口**：标题「文阅」（`\u6587\u9605`）、默认 1280×800、最小 1000×680
+  （`WM_GETMINMAXINFO`）。
+- **应用图标**：用户提供 1920×1920 磨砂玻璃图标（源图 `docs/icon/wenyue-app-icon.png`）：
+  Windows `app_icon.ico`（16–256 多尺寸）、Android `mipmap-*`（48/72/96/144/192）、
+  macOS `AppIcon.appiconset`（16/32/64/128/256/512/1024）。
+- **版本**：`pubspec.yaml` → `1.2.0+2`。
 
 ## 0. 第二轮迭代验收（2026-11-01）
 

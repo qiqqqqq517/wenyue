@@ -11,6 +11,7 @@ import '../../services/import/import_service.dart';
 import '../../services/notes_exporter.dart';
 import '../reader/reader_page.dart';
 import '../settings/settings_page.dart';
+import '../shortcuts.dart';
 
 /// 书库主页：网格展示、导入、搜索、排序、编辑与移除。
 class LibraryPage extends StatefulWidget {
@@ -33,74 +34,86 @@ class _LibraryPageState extends State<LibraryPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('文阅'),
-        actions: [
-          IconButton(
-            tooltip: '导入文献',
-            onPressed: _importing ? null : _pickAndImport,
-            icon: const Icon(Icons.add),
-          ),
-          IconButton(
-            tooltip: '搜索',
-            onPressed: _openSearch,
-            icon: const Icon(Icons.search),
-          ),
-          PopupMenuButton<DocSort>(
-            tooltip: '排序',
-            icon: const Icon(Icons.sort),
-            onSelected: (s) => setState(() => _sort = s),
-            itemBuilder: (context) => [
-              _sortItem(DocSort.recent, '最近阅读'),
-              _sortItem(DocSort.added, '添加时间'),
-              _sortItem(DocSort.title, '标题'),
-              _sortItem(DocSort.progress, '阅读进度'),
-            ],
-          ),
-          IconButton(
-            tooltip: '设置',
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => SettingsPage(container: _c),
-              ),
-            ),
-            icon: const Icon(Icons.settings_outlined),
-          ),
-        ],
-      ),
-      body: StreamBuilder<List<LibraryDoc>>(
-        stream: _c.libraryRepo.watchAll(keyword: _keyword, sort: _sort),
-        builder: (context, snap) {
-          final docs = snap.data ?? const <LibraryDoc>[];
-          if (snap.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (docs.isEmpty) {
-            return _EmptyLibrary(
-              keyword: _keyword,
-              onImport: _importing ? null : _pickAndImport,
-            );
-          }
-          return LayoutBuilder(
-            builder: (context, constraints) {
-              final cols = (constraints.maxWidth / 220).floor().clamp(2, 6);
-              return GridView.builder(
-                padding: const EdgeInsets.all(12),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: cols,
-                  childAspectRatio: 0.78,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
-                ),
-                itemCount: docs.length,
-                itemBuilder: (context, i) =>
-                    _DocCard(doc: docs[i], onOpen: _openDoc, onMenu: _showDocMenu),
-              );
-            },
-          );
+    return AppShortcutLayer(
+      bindings: {
+        AppShortcuts.importFiles: () {
+          if (!_importing) _pickAndImport();
         },
+        AppShortcuts.search: _openSearch,
+        AppShortcuts.settings: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => SettingsPage(container: _c)),
+            ),
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('文阅'),
+          actions: [
+            IconButton(
+              tooltip: '导入文献（Ctrl+O）',
+              onPressed: _importing ? null : _pickAndImport,
+              icon: const Icon(Icons.add),
+            ),
+            IconButton(
+              tooltip: '搜索（Ctrl+F）',
+              onPressed: _openSearch,
+              icon: const Icon(Icons.search),
+            ),
+            PopupMenuButton<DocSort>(
+              tooltip: '排序',
+              icon: const Icon(Icons.sort),
+              onSelected: (s) => setState(() => _sort = s),
+              itemBuilder: (context) => [
+                _sortItem(DocSort.recent, '最近阅读'),
+                _sortItem(DocSort.added, '添加时间'),
+                _sortItem(DocSort.title, '标题'),
+                _sortItem(DocSort.progress, '阅读进度'),
+              ],
+            ),
+            IconButton(
+              tooltip: '设置（Ctrl+,）',
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => SettingsPage(container: _c),
+                ),
+              ),
+              icon: const Icon(Icons.settings_outlined),
+            ),
+          ],
+        ),
+        body: StreamBuilder<List<LibraryDoc>>(
+          stream: _c.libraryRepo.watchAll(keyword: _keyword, sort: _sort),
+          builder: (context, snap) {
+            final docs = snap.data ?? const <LibraryDoc>[];
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (docs.isEmpty) {
+              return _EmptyLibrary(
+                keyword: _keyword,
+                onImport: _importing ? null : _pickAndImport,
+              );
+            }
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final cols = (constraints.maxWidth / 220).floor().clamp(2, 6);
+                return GridView.builder(
+                  padding: const EdgeInsets.all(12),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: cols,
+                    childAspectRatio: 0.78,
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 10,
+                  ),
+                  itemCount: docs.length,
+                  itemBuilder: (context, i) => _DocCard(
+                      doc: docs[i], onOpen: _openDoc, onMenu: _showDocMenu),
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }

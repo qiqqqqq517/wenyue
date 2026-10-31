@@ -315,6 +315,31 @@ class PdfReaderViewState extends State<PdfReaderView>
   /// 当前页码（书签取位用；未就绪时回退初始页）。
   int get currentPageNumber =>
       _controller.pageNumber ?? widget.initialPosition.index;
+
+  /// 总页数（工具栏页码框展示用）。
+  int get pageCount => _controller.pageCount;
+
+  /// 跳转到指定页（页码框 / 快捷键共用）。
+  Future<void> goToPage(int page) async {
+    if (page < 1) return;
+    await _controller.goToPage(pageNumber: page);
+  }
+
+  /// 下一页（→ 快捷键）。
+  Future<void> goToNextPage() async {
+    final page = _controller.pageNumber;
+    if (page != null && page < _controller.pageCount) {
+      await _controller.goToPage(pageNumber: page + 1);
+    }
+  }
+
+  /// 上一页（← 快捷键）。
+  Future<void> goToPreviousPage() async {
+    final page = _controller.pageNumber;
+    if (page != null && page > 1) {
+      await _controller.goToPage(pageNumber: page - 1);
+    }
+  }
 }
 
 class _PdfSelectionBar extends StatelessWidget {

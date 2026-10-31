@@ -14,6 +14,7 @@ import '../../readers/text/epub_reader.dart';
 import '../../readers/text/markdown_reader.dart';
 import '../../readers/text/txt_reader.dart';
 import '../settings/settings_view_model.dart';
+import '../shortcuts.dart';
 
 /// 阅读器外壳：目录 / 搜索 / 批注 / 排版设置 / 进度保存。
 class ReaderPage extends StatefulWidget {
@@ -36,6 +37,11 @@ class _ReaderPageState extends State<ReaderPage> {
   bool _closed = false;
   bool _tocOpen = false;
   bool _searchOpen = false;
+
+  /// PDF 当前位置与页码输入框（工具栏跳页）。
+  int _pdfPage = 1;
+  final TextEditingController _pageController = TextEditingController();
+  final FocusNode _pageFocus = FocusNode();
 
   final GlobalKey<PdfReaderViewState> _pdfKey = GlobalKey();
   final GlobalKey<EpubReaderViewState> _epubKey = GlobalKey();
@@ -65,6 +71,8 @@ class _ReaderPageState extends State<ReaderPage> {
     _closed = true;
     _progressDebounce?.cancel();
     _searchController.dispose();
+    _pageController.dispose();
+    _pageFocus.dispose();
     super.dispose();
   }
 
@@ -82,6 +90,8 @@ class _ReaderPageState extends State<ReaderPage> {
     setState(() {
       _doc = doc;
       _filePath = path;
+      _pdfPage = DocPosition.decode(doc.lastPositionJson).index;
+      _pageController.text = '$_pdfPage';
     });
   }
 
@@ -95,6 +105,12 @@ class _ReaderPageState extends State<ReaderPage> {
   }
 
   void _onProgress(DocPosition position, double progress) {
+    if (_doc?.format == DocFormat.pdf && position.index != _pdfPage) {
+      _pdfPage = position.index;
+      if (!_pageFocus.hasFocus) {
+        _pageController.text = '$_pdfPage';
+      }
+    }
     _progressDebounce?.cancel();
     _progressDebounce = Timer(const Duration(seconds: 2), () async {
       if (_closed || _doc == null) return;
@@ -454,6 +470,29 @@ class _ReaderPageState extends State<ReaderPage> {
 
   // ---------- 构建 ----------
 
+  /// 调整字号（Ctrl+= / Ctrl+-），范围与阅读设置滑杆一致。
+  Future<void> _changeFontSize(double delta) async {
+    final vm = SettingsViewModel.instance(_c);
+    final next = (vm.snapshot.readerFontSize + delta).clamp(12.0, 28.0);
+    await vm.setReaderFontSize(next);
+  }
+
+  /// Esc：关闭当前打开的面板。
+  void _closePanels() {
+    if (_tocOpen) setState(() => _tocOpen = false);
+    if (_searchOpen) _closeSearch();
+  }
+
+  /// 页码框提交：解析后跳页，非法输入恢复当前页。
+  void _onPageSubmitted(String value) {
+    final page = int.tryParse(value.trim());
+    if (page == null) {
+      _pageController.text = '$_pdfPage';
+      return;
+    }
+    _pdfKey.currentState?.goToPage(page);
+  }
+
   @override
   Widget build(BuildContext context) {
     final doc = _doc;
@@ -463,8 +502,31 @@ class _ReaderPageState extends State<ReaderPage> {
     final isPdf = doc.format == DocFormat.pdf;
     final isEpub = doc.format == DocFormat.epub;
     final bookmarked = _currentBookmark() != null;
-    return Scaffold(
-      appBar: AppBar(
+    return AppShortcutLayer(
+      bindings: {
+        AppShortcuts.search: _openSearch,
+        AppShortcuts.bookmark: _toggleBookmark,
+        AppShortcuts.toc: _showToc,
+        AppShortcuts.fontLarger: () => _changeFontSize(1),
+        AppShortcuts.fontSmaller: () => _changeFontSize(-1),
+        AppShortcuts.fontReset: () =>
+            SettingsViewModel.instance(_c).setReaderFontSize(16),
+        AppShortcuts.escape: _closePanels,
+        if (isPdf)
+          AppShortcuts.nextPage: () {
+            if (!_searchOpen && !_pageFocus.hasFocus) {
+              _pdfKey.currentState?.goToNextPage();
+            }
+          },
+        if (isPdf)
+          AppShortcuts.prevPage: () {
+            if (!_searchOpen && !_pageFocus.hasFocus) {
+              _pdfKey.currentState?.goToPreviousPage();
+            }
+          },
+      },
+      child: Scaffold(
+        appBar: AppBar(
         title: Text(
           doc.title,
           maxLines: 1,
@@ -542,6 +604,7 @@ class _ReaderPageState extends State<ReaderPage> {
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -682,28 +745,47 @@ class _ReaderPageState extends State<ReaderPage> {
   }
 
   Widget _pdfNavBar() {
+    final pdf = _pdfKey.currentState;
+    final pageCount = pdf?.pageCount ?? 0;
     return SafeArea(
       top: false,
       child: Row(
         children: [
           IconButton(
             tooltip: '缩小',
-            onPressed: () => _pdfKey.currentState?.zoomOut(),
+            onPressed: () => pdf?.zoomOut(),
             icon: const Icon(Icons.zoom_out),
           ),
           Expanded(
             child: Center(
-              child: Text(
-                _doc == null
-                    ? ''
-                    : '进度 ${(_doc!.progress * 100).toStringAsFixed(0)}%',
-                style: Theme.of(context).textTheme.labelSmall,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('第'),
+                  SizedBox(
+                    width: 64,
+                    child: TextField(
+                      controller: _pageController,
+                      focusNode: _pageFocus,
+                      textAlign: TextAlign.center,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        border: OutlineInputBorder(),
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      ),
+                      onSubmitted: _onPageSubmitted,
+                    ),
+                  ),
+                  Text(pageCount > 0 ? ' / $pageCount 页' : ' / ? 页'),
+                ],
               ),
             ),
           ),
           IconButton(
             tooltip: '放大',
-            onPressed: () => _pdfKey.currentState?.zoomIn(),
+            onPressed: () => pdf?.zoomIn(),
             icon: const Icon(Icons.zoom_in),
           ),
         ],
