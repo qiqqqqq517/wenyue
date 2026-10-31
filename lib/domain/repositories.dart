@@ -1,5 +1,6 @@
 import 'entities/annotation.dart';
 import 'entities/document.dart';
+import 'entities/reading_session.dart';
 
 /// 书库仓库接口（领域层定义，data 层实现）。
 ///
@@ -92,6 +93,18 @@ abstract interface class AnnotationRepository {
   ///
   /// [value] 为 `true` 标记为冲突，`false` 解除冲突。
   Future<void> setConflict(String id, bool value);
+}
+
+/// 阅读统计仓库接口（本地行为数据，不参与同步）。
+abstract interface class ReadingStatsRepository {
+  /// 记录一次阅读会话。
+  Future<void> insertSession(ReadingSession session);
+
+  /// 读取 [from] 之后开始的会话（按开始时间升序）。
+  Future<List<ReadingSession>> sessionsSince(DateTime from);
+
+  /// 清空全部会话（统计页「重置统计」用）。
+  Future<void> clearAll();
 }
 
 /// 文献文件存储接口（书库副本目录）。

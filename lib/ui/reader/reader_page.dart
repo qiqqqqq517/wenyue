@@ -8,6 +8,7 @@ import '../../di/app_container.dart';
 import '../../domain/entities/anchors.dart';
 import '../../domain/entities/annotation.dart';
 import '../../domain/entities/document.dart';
+import '../../domain/entities/reading_session.dart';
 import '../../readers/pdf/pdf_reader.dart';
 import '../../readers/reader_core.dart';
 import '../../readers/text/epub_reader.dart';
@@ -43,6 +44,10 @@ class _ReaderPageState extends State<ReaderPage> {
   final TextEditingController _pageController = TextEditingController();
   final FocusNode _pageFocus = FocusNode();
 
+  /// 本次阅读会话（打开→关闭记一条，供阅读统计）。
+  DateTime? _sessionStart;
+  String? _sessionId;
+
   final GlobalKey<PdfReaderViewState> _pdfKey = GlobalKey();
   final GlobalKey<EpubReaderViewState> _epubKey = GlobalKey();
   final GlobalKey<MarkdownReaderViewState> _mdKey = GlobalKey();
@@ -70,10 +75,29 @@ class _ReaderPageState extends State<ReaderPage> {
   void dispose() {
     _closed = true;
     _progressDebounce?.cancel();
+    _recordSession();
     _searchController.dispose();
     _pageController.dispose();
     _pageFocus.dispose();
     super.dispose();
+  }
+
+  /// 关闭阅读器时写入一条阅读会话（最短 3 秒、单次上限 3 小时）。
+  void _recordSession() {
+    final start = _sessionStart;
+    final id = _sessionId;
+    if (start == null || id == null) return;
+    final now = DateTime.now();
+    var seconds = now.difference(start).inSeconds;
+    if (seconds < 3) return;
+    if (seconds > 3 * 3600) seconds = 3 * 3600;
+    unawaited(_c.statsRepo.insertSession(ReadingSession(
+      id: id,
+      documentId: widget.docId,
+      startedAt: start,
+      endedAt: now,
+      seconds: seconds,
+    )));
   }
 
   Future<void> _loadDoc() async {
@@ -92,6 +116,8 @@ class _ReaderPageState extends State<ReaderPage> {
       _filePath = path;
       _pdfPage = DocPosition.decode(doc.lastPositionJson).index;
       _pageController.text = '$_pdfPage';
+      _sessionStart = DateTime.now();
+      _sessionId = _uuid.v4();
     });
   }
 

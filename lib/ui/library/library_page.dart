@@ -12,6 +12,7 @@ import '../../services/notes_exporter.dart';
 import '../reader/reader_page.dart';
 import '../settings/settings_page.dart';
 import '../shortcuts.dart';
+import '../stats/stats_page.dart';
 
 /// 书库主页：网格展示、导入、搜索、排序、编辑与移除。
 class LibraryPage extends StatefulWidget {
@@ -69,6 +70,14 @@ class _LibraryPageState extends State<LibraryPage> {
                 _sortItem(DocSort.title, '标题'),
                 _sortItem(DocSort.progress, '阅读进度'),
               ],
+            ),
+            IconButton(
+              tooltip: '阅读统计',
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => StatsPage(container: _c)),
+              ),
+              icon: const Icon(Icons.insights_outlined),
             ),
             IconButton(
               tooltip: '设置（Ctrl+,）',

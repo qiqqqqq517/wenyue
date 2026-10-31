@@ -5,6 +5,7 @@ import '../data/db/app_database.dart';
 import '../data/impl/annotation_repository_impl.dart';
 import '../data/impl/file_store.dart';
 import '../data/impl/library_repository_impl.dart';
+import '../data/impl/reading_stats_repository_impl.dart';
 import '../data/impl/settings_store.dart';
 import '../domain/repositories.dart';
 import '../services/backup_service.dart';
@@ -21,6 +22,7 @@ class AppContainer {
     required this.database,
     required this.libraryRepo,
     required this.annotationRepo,
+    required this.statsRepo,
     required this.fileStore,
     required this.metaStore,
     required this.settings,
@@ -31,6 +33,7 @@ class AppContainer {
   final AppDatabase database;
   final LibraryRepository libraryRepo;
   final AnnotationRepository annotationRepo;
+  final ReadingStatsRepository statsRepo;
   final DocFileStore fileStore;
   final SyncMetaStore metaStore;
   final SettingsStore settings;
@@ -50,6 +53,7 @@ class AppContainer {
       database: db,
       libraryRepo: LibraryRepositoryImpl(db),
       annotationRepo: AnnotationRepositoryImpl(db),
+      statsRepo: ReadingStatsRepositoryImpl(db),
       fileStore: store,
       metaStore: SyncMetaStoreImpl(db),
       settings: SettingsStore(prefs),

@@ -62,6 +62,30 @@ class Documents extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// 阅读会话表（Drift ORM 表定义）。
+///
+/// 每次打开阅读器到关闭记一条会话，用于阅读统计（时长 / 连续天数 / 常用文献）。
+/// 不做同步（统计是本机行为数据）。
+class ReadingSessions extends Table {
+  /// 会话唯一标识（UUID 字符串，主键）
+  TextColumn get id => text()();
+
+  /// 所属文档 ID
+  TextColumn get documentId => text()();
+
+  /// 开始阅读时间
+  DateTimeColumn get startedAt => dateTime()();
+
+  /// 结束阅读时间
+  DateTimeColumn get endedAt => dateTime()();
+
+  /// 本次有效阅读秒数（已在上层做最短/最长截断）
+  IntColumn get seconds => integer()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 /// 批注表（Drift ORM 表定义）。
 ///
 /// 对应领域实体 [Annotation]，存储高亮、笔记、书签三种类型的批注。

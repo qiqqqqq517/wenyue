@@ -1,6 +1,27 @@
 # 验收记录
 
-> 更新：2026-11-01（第三轮迭代 v1.2.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+> 更新：2026-11-01（第四轮迭代 v1.3.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+
+## 0.6 第四轮迭代验收（v1.3.0 阅读统计，2026-11-01）
+
+| 项目 | 结果 |
+| --- | --- |
+| `dart analyze` | 0 问题 |
+| `flutter test` | 44/44 通过（新增统计 ×9：聚合 7 + 仓库 2） |
+| 数据库迁移 | schema v2→v3 新增 `reading_sessions`（`m.createTable`） |
+| Windows Release 构建 | ✅ 经 `C:\wenyue` junction 构建并冒烟通过 |
+
+新增内容：
+
+- **数据层**：`ReadingSessions` 表（id/documentId/startedAt/endedAt/seconds）；
+  `ReadingStatsRepository` 接口 + drift 实现（插入、按时间查询、清空）。
+- **聚合服务**（`services/stats/reading_stats_service.dart`，纯函数）：
+  累计/今日时长、活跃天数、连续天数（今天无记录从昨天起算）、近 7 日补零窗口、
+  按文档聚合与 Top 榜；忽略非正时长会话。
+- **UI**：`StatsPage`（四张统计卡、近 7 天柱状、常读文献、重置统计）；
+  书库工具栏新增「阅读统计」入口。
+- **会话记录**：阅读器打开记开始时间、关闭写一条（最短 3 秒、单次上限 3 小时）。
+- **版本**：`pubspec.yaml` → `1.3.0+3`。
 
 ## 0.5 第三轮迭代验收（v1.2.0 桌面化，2026-11-01）
 

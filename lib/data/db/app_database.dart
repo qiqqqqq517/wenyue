@@ -8,9 +8,9 @@ import 'tables.dart';
 
 part 'app_database.g.dart';
 
-/// 应用数据库：书库、批注与同步元数据。
+/// 应用数据库：书库、批注、阅读会话与同步元数据。
 /// 全部访问经由仓库接口；drift 查询使用参数绑定，外部输入不拼接进 SQL。
-@DriftDatabase(tables: [Documents, Annotations, SyncMeta])
+@DriftDatabase(tables: [Documents, Annotations, SyncMeta, ReadingSessions])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(driftDatabase(name: 'wenyue'));
 
@@ -18,7 +18,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -26,6 +26,10 @@ class AppDatabase extends _$AppDatabase {
           if (from < 2) {
             // v2：新增 source_path（Markdown 本地资源回退解析）
             await m.addColumn(documents, documents.sourcePath);
+          }
+          if (from < 3) {
+            // v3：新增阅读会话表（阅读统计）
+            await m.createTable(readingSessions);
           }
         },
       );

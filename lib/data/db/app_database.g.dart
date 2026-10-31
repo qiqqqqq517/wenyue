@@ -1829,12 +1829,388 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
   }
 }
 
+class $ReadingSessionsTable extends ReadingSessions
+    with TableInfo<$ReadingSessionsTable, ReadingSession> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ReadingSessionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _documentIdMeta = const VerificationMeta(
+    'documentId',
+  );
+  @override
+  late final GeneratedColumn<String> documentId = GeneratedColumn<String>(
+    'document_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _startedAtMeta = const VerificationMeta(
+    'startedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> startedAt = GeneratedColumn<DateTime>(
+    'started_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _endedAtMeta = const VerificationMeta(
+    'endedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> endedAt = GeneratedColumn<DateTime>(
+    'ended_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _secondsMeta = const VerificationMeta(
+    'seconds',
+  );
+  @override
+  late final GeneratedColumn<int> seconds = GeneratedColumn<int>(
+    'seconds',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    documentId,
+    startedAt,
+    endedAt,
+    seconds,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'reading_sessions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ReadingSession> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('document_id')) {
+      context.handle(
+        _documentIdMeta,
+        documentId.isAcceptableOrUnknown(data['document_id']!, _documentIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_documentIdMeta);
+    }
+    if (data.containsKey('started_at')) {
+      context.handle(
+        _startedAtMeta,
+        startedAt.isAcceptableOrUnknown(data['started_at']!, _startedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_startedAtMeta);
+    }
+    if (data.containsKey('ended_at')) {
+      context.handle(
+        _endedAtMeta,
+        endedAt.isAcceptableOrUnknown(data['ended_at']!, _endedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_endedAtMeta);
+    }
+    if (data.containsKey('seconds')) {
+      context.handle(
+        _secondsMeta,
+        seconds.isAcceptableOrUnknown(data['seconds']!, _secondsMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_secondsMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ReadingSession map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ReadingSession(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      documentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}document_id'],
+      )!,
+      startedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}started_at'],
+      )!,
+      endedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}ended_at'],
+      )!,
+      seconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}seconds'],
+      )!,
+    );
+  }
+
+  @override
+  $ReadingSessionsTable createAlias(String alias) {
+    return $ReadingSessionsTable(attachedDatabase, alias);
+  }
+}
+
+class ReadingSession extends DataClass implements Insertable<ReadingSession> {
+  /// 会话唯一标识（UUID 字符串，主键）
+  final String id;
+
+  /// 所属文档 ID
+  final String documentId;
+
+  /// 开始阅读时间
+  final DateTime startedAt;
+
+  /// 结束阅读时间
+  final DateTime endedAt;
+
+  /// 本次有效阅读秒数（已在上层做最短/最长截断）
+  final int seconds;
+  const ReadingSession({
+    required this.id,
+    required this.documentId,
+    required this.startedAt,
+    required this.endedAt,
+    required this.seconds,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['document_id'] = Variable<String>(documentId);
+    map['started_at'] = Variable<DateTime>(startedAt);
+    map['ended_at'] = Variable<DateTime>(endedAt);
+    map['seconds'] = Variable<int>(seconds);
+    return map;
+  }
+
+  ReadingSessionsCompanion toCompanion(bool nullToAbsent) {
+    return ReadingSessionsCompanion(
+      id: Value(id),
+      documentId: Value(documentId),
+      startedAt: Value(startedAt),
+      endedAt: Value(endedAt),
+      seconds: Value(seconds),
+    );
+  }
+
+  factory ReadingSession.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ReadingSession(
+      id: serializer.fromJson<String>(json['id']),
+      documentId: serializer.fromJson<String>(json['documentId']),
+      startedAt: serializer.fromJson<DateTime>(json['startedAt']),
+      endedAt: serializer.fromJson<DateTime>(json['endedAt']),
+      seconds: serializer.fromJson<int>(json['seconds']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'documentId': serializer.toJson<String>(documentId),
+      'startedAt': serializer.toJson<DateTime>(startedAt),
+      'endedAt': serializer.toJson<DateTime>(endedAt),
+      'seconds': serializer.toJson<int>(seconds),
+    };
+  }
+
+  ReadingSession copyWith({
+    String? id,
+    String? documentId,
+    DateTime? startedAt,
+    DateTime? endedAt,
+    int? seconds,
+  }) => ReadingSession(
+    id: id ?? this.id,
+    documentId: documentId ?? this.documentId,
+    startedAt: startedAt ?? this.startedAt,
+    endedAt: endedAt ?? this.endedAt,
+    seconds: seconds ?? this.seconds,
+  );
+  ReadingSession copyWithCompanion(ReadingSessionsCompanion data) {
+    return ReadingSession(
+      id: data.id.present ? data.id.value : this.id,
+      documentId: data.documentId.present
+          ? data.documentId.value
+          : this.documentId,
+      startedAt: data.startedAt.present ? data.startedAt.value : this.startedAt,
+      endedAt: data.endedAt.present ? data.endedAt.value : this.endedAt,
+      seconds: data.seconds.present ? data.seconds.value : this.seconds,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReadingSession(')
+          ..write('id: $id, ')
+          ..write('documentId: $documentId, ')
+          ..write('startedAt: $startedAt, ')
+          ..write('endedAt: $endedAt, ')
+          ..write('seconds: $seconds')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, documentId, startedAt, endedAt, seconds);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ReadingSession &&
+          other.id == this.id &&
+          other.documentId == this.documentId &&
+          other.startedAt == this.startedAt &&
+          other.endedAt == this.endedAt &&
+          other.seconds == this.seconds);
+}
+
+class ReadingSessionsCompanion extends UpdateCompanion<ReadingSession> {
+  final Value<String> id;
+  final Value<String> documentId;
+  final Value<DateTime> startedAt;
+  final Value<DateTime> endedAt;
+  final Value<int> seconds;
+  final Value<int> rowid;
+  const ReadingSessionsCompanion({
+    this.id = const Value.absent(),
+    this.documentId = const Value.absent(),
+    this.startedAt = const Value.absent(),
+    this.endedAt = const Value.absent(),
+    this.seconds = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ReadingSessionsCompanion.insert({
+    required String id,
+    required String documentId,
+    required DateTime startedAt,
+    required DateTime endedAt,
+    required int seconds,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       documentId = Value(documentId),
+       startedAt = Value(startedAt),
+       endedAt = Value(endedAt),
+       seconds = Value(seconds);
+  static Insertable<ReadingSession> custom({
+    Expression<String>? id,
+    Expression<String>? documentId,
+    Expression<DateTime>? startedAt,
+    Expression<DateTime>? endedAt,
+    Expression<int>? seconds,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (documentId != null) 'document_id': documentId,
+      if (startedAt != null) 'started_at': startedAt,
+      if (endedAt != null) 'ended_at': endedAt,
+      if (seconds != null) 'seconds': seconds,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ReadingSessionsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? documentId,
+    Value<DateTime>? startedAt,
+    Value<DateTime>? endedAt,
+    Value<int>? seconds,
+    Value<int>? rowid,
+  }) {
+    return ReadingSessionsCompanion(
+      id: id ?? this.id,
+      documentId: documentId ?? this.documentId,
+      startedAt: startedAt ?? this.startedAt,
+      endedAt: endedAt ?? this.endedAt,
+      seconds: seconds ?? this.seconds,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (documentId.present) {
+      map['document_id'] = Variable<String>(documentId.value);
+    }
+    if (startedAt.present) {
+      map['started_at'] = Variable<DateTime>(startedAt.value);
+    }
+    if (endedAt.present) {
+      map['ended_at'] = Variable<DateTime>(endedAt.value);
+    }
+    if (seconds.present) {
+      map['seconds'] = Variable<int>(seconds.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReadingSessionsCompanion(')
+          ..write('id: $id, ')
+          ..write('documentId: $documentId, ')
+          ..write('startedAt: $startedAt, ')
+          ..write('endedAt: $endedAt, ')
+          ..write('seconds: $seconds, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $DocumentsTable documents = $DocumentsTable(this);
   late final $AnnotationsTable annotations = $AnnotationsTable(this);
   late final $SyncMetaTable syncMeta = $SyncMetaTable(this);
+  late final $ReadingSessionsTable readingSessions = $ReadingSessionsTable(
+    this,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1843,6 +2219,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     documents,
     annotations,
     syncMeta,
+    readingSessions,
   ];
 }
 
@@ -2731,6 +3108,223 @@ typedef $$SyncMetaTableProcessedTableManager =
       SyncMetaData,
       PrefetchHooks Function()
     >;
+typedef $$ReadingSessionsTableCreateCompanionBuilder =
+    ReadingSessionsCompanion Function({
+      required String id,
+      required String documentId,
+      required DateTime startedAt,
+      required DateTime endedAt,
+      required int seconds,
+      Value<int> rowid,
+    });
+typedef $$ReadingSessionsTableUpdateCompanionBuilder =
+    ReadingSessionsCompanion Function({
+      Value<String> id,
+      Value<String> documentId,
+      Value<DateTime> startedAt,
+      Value<DateTime> endedAt,
+      Value<int> seconds,
+      Value<int> rowid,
+    });
+
+class $$ReadingSessionsTableFilterComposer
+    extends Composer<_$AppDatabase, $ReadingSessionsTable> {
+  $$ReadingSessionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get documentId => $composableBuilder(
+    column: $table.documentId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get startedAt => $composableBuilder(
+    column: $table.startedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get endedAt => $composableBuilder(
+    column: $table.endedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get seconds => $composableBuilder(
+    column: $table.seconds,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ReadingSessionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $ReadingSessionsTable> {
+  $$ReadingSessionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get documentId => $composableBuilder(
+    column: $table.documentId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get startedAt => $composableBuilder(
+    column: $table.startedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get endedAt => $composableBuilder(
+    column: $table.endedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get seconds => $composableBuilder(
+    column: $table.seconds,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ReadingSessionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ReadingSessionsTable> {
+  $$ReadingSessionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get documentId => $composableBuilder(
+    column: $table.documentId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get startedAt =>
+      $composableBuilder(column: $table.startedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get endedAt =>
+      $composableBuilder(column: $table.endedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get seconds =>
+      $composableBuilder(column: $table.seconds, builder: (column) => column);
+}
+
+class $$ReadingSessionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ReadingSessionsTable,
+          ReadingSession,
+          $$ReadingSessionsTableFilterComposer,
+          $$ReadingSessionsTableOrderingComposer,
+          $$ReadingSessionsTableAnnotationComposer,
+          $$ReadingSessionsTableCreateCompanionBuilder,
+          $$ReadingSessionsTableUpdateCompanionBuilder,
+          (
+            ReadingSession,
+            BaseReferences<
+              _$AppDatabase,
+              $ReadingSessionsTable,
+              ReadingSession
+            >,
+          ),
+          ReadingSession,
+          PrefetchHooks Function()
+        > {
+  $$ReadingSessionsTableTableManager(
+    _$AppDatabase db,
+    $ReadingSessionsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ReadingSessionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ReadingSessionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ReadingSessionsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> documentId = const Value.absent(),
+                Value<DateTime> startedAt = const Value.absent(),
+                Value<DateTime> endedAt = const Value.absent(),
+                Value<int> seconds = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ReadingSessionsCompanion(
+                id: id,
+                documentId: documentId,
+                startedAt: startedAt,
+                endedAt: endedAt,
+                seconds: seconds,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String documentId,
+                required DateTime startedAt,
+                required DateTime endedAt,
+                required int seconds,
+                Value<int> rowid = const Value.absent(),
+              }) => ReadingSessionsCompanion.insert(
+                id: id,
+                documentId: documentId,
+                startedAt: startedAt,
+                endedAt: endedAt,
+                seconds: seconds,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$ReadingSessionsTable, ReadingSession>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $ReadingSessionsTable,
+                    ReadingSession
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ReadingSessionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ReadingSessionsTable,
+      ReadingSession,
+      $$ReadingSessionsTableFilterComposer,
+      $$ReadingSessionsTableOrderingComposer,
+      $$ReadingSessionsTableAnnotationComposer,
+      $$ReadingSessionsTableCreateCompanionBuilder,
+      $$ReadingSessionsTableUpdateCompanionBuilder,
+      (
+        ReadingSession,
+        BaseReferences<_$AppDatabase, $ReadingSessionsTable, ReadingSession>,
+      ),
+      ReadingSession,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -2741,4 +3335,6 @@ class $AppDatabaseManager {
       $$AnnotationsTableTableManager(_db, _db.annotations);
   $$SyncMetaTableTableManager get syncMeta =>
       $$SyncMetaTableTableManager(_db, _db.syncMeta);
+  $$ReadingSessionsTableTableManager get readingSessions =>
+      $$ReadingSessionsTableTableManager(_db, _db.readingSessions);
 }
