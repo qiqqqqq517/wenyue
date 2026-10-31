@@ -7,12 +7,14 @@ class SettingsSnapshot {
   final double readerFontSize;
   final double readerLineHeight;
   final String readerFontFamily; // '' = 默认字体
+  final String libraryView; // grid | list
 
   const SettingsSnapshot({
     this.themeMode = 'system',
     this.readerFontSize = 16.0,
     this.readerLineHeight = 1.7,
     this.readerFontFamily = '',
+    this.libraryView = 'grid',
   });
 
   SettingsSnapshot copyWith({
@@ -20,12 +22,14 @@ class SettingsSnapshot {
     double? readerFontSize,
     double? readerLineHeight,
     String? readerFontFamily,
+    String? libraryView,
   }) =>
       SettingsSnapshot(
         themeMode: themeMode ?? this.themeMode,
         readerFontSize: readerFontSize ?? this.readerFontSize,
         readerLineHeight: readerLineHeight ?? this.readerLineHeight,
         readerFontFamily: readerFontFamily ?? this.readerFontFamily,
+        libraryView: libraryView ?? this.libraryView,
       );
 }
 
@@ -57,6 +61,7 @@ class SettingsStore {
   static const _kFontSize = 'reader.fontSize';
   static const _kLineHeight = 'reader.lineHeight';
   static const _kFontFamily = 'reader.fontFamily';
+  static const _kLibraryView = 'library.view';
   static const _kDavUrl = 'webdav.url';
   static const _kDavUser = 'webdav.user';
   static const _kDavBase = 'webdav.basePath';
@@ -68,6 +73,7 @@ class SettingsStore {
         readerFontSize: _prefs.getDouble(_kFontSize) ?? 16.0,
         readerLineHeight: _prefs.getDouble(_kLineHeight) ?? 1.7,
         readerFontFamily: _prefs.getString(_kFontFamily) ?? '',
+        libraryView: _prefs.getString(_kLibraryView) ?? 'grid',
       );
 
   Future<SettingsSnapshot> setThemeMode(String v) async {
@@ -87,6 +93,12 @@ class SettingsStore {
 
   Future<SettingsSnapshot> setReaderFontFamily(String v) async {
     await _prefs.setString(_kFontFamily, v);
+    return load();
+  }
+
+  /// 书库视图模式（grid / list）。
+  Future<SettingsSnapshot> setLibraryView(String v) async {
+    await _prefs.setString(_kLibraryView, v);
     return load();
   }
 

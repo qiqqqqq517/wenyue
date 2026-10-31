@@ -13,6 +13,7 @@ import '../reader/reader_page.dart';
 import '../settings/settings_page.dart';
 import '../shortcuts.dart';
 import '../stats/stats_page.dart';
+import 'library_filter.dart';
 
 /// 书库主页：网格展示、导入、搜索、排序、编辑与移除。
 class LibraryPage extends StatefulWidget {
@@ -28,10 +29,62 @@ class _LibraryPageState extends State<LibraryPage> {
   String _keyword = '';
   DocSort _sort = DocSort.recent;
   bool _importing = false;
+  String _viewMode = 'grid';
+  final Set<String> _selectedTags = {};
 
   AppContainer get _c => widget.container;
 
   static const _supportedExtensions = ['pdf', 'epub', 'md', 'markdown', 'txt'];
+
+  @override
+  void initState() {
+    super.initState();
+    _viewMode = _c.settings.load().libraryView;
+  }
+
+  Future<void> _toggleView() async {
+    final next = _viewMode == 'grid' ? 'list' : 'grid';
+    setState(() => _viewMode = next);
+    await _c.settings.setLibraryView(next);
+  }
+
+  void _toggleTag(String tag) {
+    setState(() {
+      if (!_selectedTags.add(tag)) _selectedTags.remove(tag);
+    });
+  }
+
+  Widget _buildDocsView(List<LibraryDoc> docs) {
+    if (_viewMode == 'list') {
+      return ListView.separated(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        itemCount: docs.length,
+        separatorBuilder: (_, _) => const Divider(height: 1),
+        itemBuilder: (context, i) => _DocListTile(
+          doc: docs[i],
+          onOpen: _openDoc,
+          onMenu: _showDocMenu,
+        ),
+      );
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cols = (constraints.maxWidth / 220).floor().clamp(2, 6);
+        return GridView.builder(
+          padding: const EdgeInsets.all(12),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: cols,
+            childAspectRatio: 0.78,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+          ),
+          itemCount: docs.length,
+          itemBuilder: (context, i) =>
+              _DocCard(doc: docs[i], onOpen: _openDoc, onMenu: _showDocMenu),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -72,6 +125,13 @@ class _LibraryPageState extends State<LibraryPage> {
               ],
             ),
             IconButton(
+              tooltip: _viewMode == 'grid' ? '切换列表视图' : '切换网格视图',
+              onPressed: _toggleView,
+              icon: Icon(_viewMode == 'grid'
+                  ? Icons.view_list_outlined
+                  : Icons.grid_view_outlined),
+            ),
+            IconButton(
               tooltip: '阅读统计',
               onPressed: () => Navigator.push(
                 context,
@@ -94,32 +154,35 @@ class _LibraryPageState extends State<LibraryPage> {
         body: StreamBuilder<List<LibraryDoc>>(
           stream: _c.libraryRepo.watchAll(keyword: _keyword, sort: _sort),
           builder: (context, snap) {
-            final docs = snap.data ?? const <LibraryDoc>[];
+            final all = snap.data ?? const <LibraryDoc>[];
             if (snap.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
-            if (docs.isEmpty) {
+            if (all.isEmpty) {
               return _EmptyLibrary(
                 keyword: _keyword,
                 onImport: _importing ? null : _pickAndImport,
               );
             }
-            return LayoutBuilder(
-              builder: (context, constraints) {
-                final cols = (constraints.maxWidth / 220).floor().clamp(2, 6);
-                return GridView.builder(
-                  padding: const EdgeInsets.all(12),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: cols,
-                    childAspectRatio: 0.78,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 10,
+            final tags = collectTags(all);
+            final docs = filterByTags(all, _selectedTags);
+            return Column(
+              children: [
+                if (tags.isNotEmpty)
+                  _TagFilterBar(
+                    tags: tags.toList(),
+                    selected: _selectedTags,
+                    onToggle: _toggleTag,
+                    onClear: () => setState(_selectedTags.clear),
                   ),
-                  itemCount: docs.length,
-                  itemBuilder: (context, i) => _DocCard(
-                      doc: docs[i], onOpen: _openDoc, onMenu: _showDocMenu),
-                );
-              },
+                Expanded(
+                  child: docs.isEmpty
+                      ? _EmptyFiltered(
+                          onClear: () => setState(_selectedTags.clear),
+                        )
+                      : _buildDocsView(docs),
+                ),
+              ],
             );
           },
         ),
@@ -398,6 +461,152 @@ class _LibraryPageState extends State<LibraryPage> {
         // 副本删除失败不阻塞条目移除
       }
     }
+  }
+}
+
+// ---------------- 标签筛选条 ----------------
+
+class _TagFilterBar extends StatelessWidget {
+  const _TagFilterBar({
+    required this.tags,
+    required this.selected,
+    required this.onToggle,
+    required this.onClear,
+  });
+
+  final List<String> tags;
+  final Set<String> selected;
+  final void Function(String tag) onToggle;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 52,
+      child: Row(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: Row(
+                children: [
+                  for (final t in tags)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: FilterChip(
+                        label: Text(t),
+                        selected: selected.contains(t),
+                        onSelected: (_) => onToggle(t),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          if (selected.isNotEmpty)
+            TextButton(onPressed: onClear, child: const Text('清除')),
+          const SizedBox(width: 4),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------- 列表视图 ----------------
+
+class _DocListTile extends StatelessWidget {
+  const _DocListTile({
+    required this.doc,
+    required this.onOpen,
+    required this.onMenu,
+  });
+
+  final LibraryDoc doc;
+  final void Function(LibraryDoc) onOpen;
+  final void Function(LibraryDoc) onMenu;
+
+  IconData get _icon => switch (doc.format) {
+        DocFormat.pdf => Icons.picture_as_pdf_outlined,
+        DocFormat.epub => Icons.menu_book_outlined,
+        DocFormat.markdown => Icons.article_outlined,
+        DocFormat.txt => Icons.description_outlined,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final subtitle = <String>[
+      doc.format.label,
+      if (doc.author?.isNotEmpty == true) doc.author!,
+      if (doc.tags.isNotEmpty) doc.tags.join(' · '),
+      doc.lastOpenedAt != null ? '读过 ${Fmt.date(doc.lastOpenedAt)}' : '未读',
+    ].join('　');
+    return ListTile(
+      onTap: () => onOpen(doc),
+      onLongPress: () => onMenu(doc),
+      leading: Icon(_icon, color: theme.colorScheme.primary),
+      title: Text(doc.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelSmall,
+          ),
+          const SizedBox(height: 4),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: LinearProgressIndicator(
+              value: doc.progress > 0 ? doc.progress : null,
+              minHeight: 3,
+            ),
+          ),
+        ],
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '${(doc.progress * 100).toStringAsFixed(0)}%',
+            style: theme.textTheme.labelSmall,
+          ),
+          IconButton(
+            tooltip: '更多',
+            onPressed: () => onMenu(doc),
+            icon: const Icon(Icons.more_vert),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------- 筛选空状态 ----------------
+
+class _EmptyFiltered extends StatelessWidget {
+  const _EmptyFiltered({required this.onClear});
+
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.filter_alt_off_outlined,
+              size: 48, color: Theme.of(context).colorScheme.outline),
+          const SizedBox(height: 10),
+          const Text('没有匹配所选标签的文献'),
+          TextButton(onPressed: onClear, child: const Text('清除标签筛选')),
+        ],
+      ),
+    );
   }
 }
 

@@ -42,4 +42,9 @@ class SettingsViewModel extends ChangeNotifier {
     _snapshot = await _store.setReaderFontFamily(v);
     notifyListeners();
   }
+
+  Future<void> setLibraryView(String v) async {
+    _snapshot = await _store.setLibraryView(v);
+    notifyListeners();
+  }
 }

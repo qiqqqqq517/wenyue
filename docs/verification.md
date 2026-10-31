@@ -1,6 +1,24 @@
 # 验收记录
 
-> 更新：2026-11-01（第四轮迭代 v1.3.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+> 更新：2026-11-01（第五轮迭代 v1.4.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+
+## 0.7 第五轮迭代验收（v1.4.0 书库视图与标签筛选，2026-11-01）
+
+| 项目 | 结果 |
+| --- | --- |
+| `dart analyze` | 0 问题 |
+| `flutter test` | 54/54 通过（新增书库筛选 ×7、设置持久化 ×3） |
+| Windows Release 构建 | ✅ 经 `C:\wenyue` junction 构建并冒烟通过 |
+
+新增内容：
+
+- **视图切换**：书库工具栏按钮在网格/列表间切换；`SettingsStore.libraryView`
+  持久化（SharedPreferences key `library.view`），重开应用保持。
+- **标签筛选**：`lib/ui/library/library_filter.dart` 纯函数
+  （`collectTags` 去重排序、`filterByTags` OR 语义）；筛选条 FilterChip 多选、
+  「清除」按钮；无命中时显示空态与清除入口。
+- **列表视图**：`_DocListTile` 展示格式/作者/标签/最近阅读/进度条与更多菜单。
+- **版本**：`pubspec.yaml` → `1.4.0+4`。
 
 ## 0.6 第四轮迭代验收（v1.3.0 阅读统计，2026-11-01）
 
