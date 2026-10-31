@@ -1,0 +1,53 @@
+[
+  {
+    "instanceId": "ae15dd31",
+    "installDate": "2026-10-31T16:48:58Z",
+    "installationName": "VisualStudio/17.14.44+37827.9",
+    "installationPath": "C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools",
+    "installationVersion": "17.14.37827.9",
+    "productId": "Microsoft.VisualStudio.Product.BuildTools",
+    "productPath": "C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\Common7\\Tools\\LaunchDevCmd.bat",
+    "state": 4294967295,
+    "isComplete": true,
+    "isLaunchable": true,
+    "isPrerelease": false,
+    "isRebootRequired": false,
+    "displayName": "Visual Studio 生成工具 2022",
+    "description": "Visual Studio 生成工具允许生成本机和基于 MSBuild 的托管 .NET 应用程序，而不需要 Visual Studio IDE。还可以选择安装 Visual C++ 编译器和库、MFC、ALT 和 C++/CLI 支持。",
+    "channelId": "VisualStudio.17.Release",
+    "channelUri": "https://aka.ms/vs/17/release/channel",
+    "enginePath": "C:\\Program Files (x86)\\Microsoft Visual Studio\\Installer\\resources\\app\\ServiceHub\\Services\\Microsoft.VisualStudio.Setup.Service",
+    "installChannelUri": "https://aka.ms/vs/17/release/626750278_-1218794058/channel",
+    "installedChannelId": "VisualStudio.17.Release",
+    "installedChannelUri": "https://aka.ms/vs/17/release/channel",
+    "releaseNotes": "https://docs.microsoft.com/en-us/visualstudio/releases/2022/release-notes-v17.14#17.14.44",
+    "resolvedInstallationPath": "C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools",
+    "thirdPartyNotices": "https://go.microsoft.com/fwlink/?LinkId=661288",
+    "updateDate": "2026-10-31T16:48:58.0253978Z",
+    "catalog": {
+      "buildBranch": "d17.14",
+      "buildVersion": "17.14.37827.9",
+      "id": "VisualStudio/17.14.44+37827.9",
+      "localBuild": "build-lab",
+      "manifestName": "VisualStudio",
+      "manifestType": "installer",
+      "productDisplayVersion": "17.14.44",
+      "productLine": "Dev17",
+      "productLineVersion": "2022",
+      "productMilestone": "RTW",
+      "productMilestoneIsPreRelease": "False",
+      "productName": "Visual Studio",
+      "productPatchVersion": "44",
+      "productPreReleaseMilestoneSuffix": "1.0",
+      "productSemanticVersion": "17.14.44+37827.9",
+      "requiredEngineVersion": "3.14.2094.42856"
+    },
+    "properties": {
+      "campaignId": "",
+      "channelManifestId": "VisualStudio.17.Release/17.14.44+37827.9",
+      "includeRecommended": "0",
+      "nickname": "",
+      "setupEngineFilePath": "C:\\Program Files (x86)\\Microsoft Visual Studio\\Installer\\setup.exe"
+    }
+  }
+]
