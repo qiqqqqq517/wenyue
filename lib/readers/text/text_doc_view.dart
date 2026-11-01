@@ -5,6 +5,7 @@ import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
 import '../../domain/entities/anchors.dart';
 import '../../domain/entities/annotation.dart';
+import '../../services/text/annotation_guard.dart';
 import '../../services/text/text_document.dart';
 import '../reader_core.dart';
 import 'code_highlighter.dart';
@@ -197,9 +198,11 @@ class TextDocViewState extends State<TextDocView> {
     if (note == null || note.isEmpty || _selStart == null || _selEnd == null) {
       return;
     }
+    final sel = normalizeSelection(_selStart, _selEnd);
+    if (sel == null) return;
     await widget.onCreateAnnotation(
-      TextAnchor(start: _selStart!, end: _selEnd!),
-      _selText,
+      TextAnchor(start: sel.start, end: sel.end),
+      clampQuote(_selText),
       AnnotationKind.note,
       'yellow',
     );
@@ -207,10 +210,11 @@ class TextDocViewState extends State<TextDocView> {
   }
 
   Future<void> _addHighlight(String colorName) async {
-    if (_selStart == null || _selEnd == null) return;
+    final sel = normalizeSelection(_selStart, _selEnd);
+    if (sel == null) return;
     await widget.onCreateAnnotation(
-      TextAnchor(start: _selStart!, end: _selEnd!),
-      _selText,
+      TextAnchor(start: sel.start, end: sel.end),
+      clampQuote(_selText),
       AnnotationKind.highlight,
       colorName,
     );

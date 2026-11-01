@@ -1,6 +1,24 @@
 # 验收记录
 
-> 更新：2026-11-01（第二十四轮迭代 v1.22.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+> 更新：2026-11-01（第二十五轮迭代 v1.23.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+
+## 2.7 第二十五轮迭代验收（v1.23.0 批注引用保护，2026-11-01）
+
+| 项目 | 结果 |
+| --- | --- |
+| `dart analyze` | 0 问题 |
+| `flutter test` | 150/150（新增批注保护纯函数 ×8） |
+| Windows Release 构建 | ✅ 经 `C:\wenyue` junction 构建并冒烟通过 |
+
+新增内容：
+
+- **输入保护**（`lib/services/text/annotation_guard.dart`）：
+  `normalizeSelection`——反向选区交换（不同平台选择方向不同）、零长度选区拒绝；
+  `clampQuote`——引用超 2000 字符截断并追加「…（引用过长已截断）」，
+  防全选大文档导致 DB/导出/同步载荷膨胀（上限常量 `kMaxAnnotationQuoteLength`）。
+- **接入**：TextDocView 的 `_addNote` / `_addHighlight` 创建路径统一走保护函数。
+- **测试 ×8**：正序/反序交换/零长/null/短引用/恰上限/超长截断/自定义上限。
+- **版本**：`pubspec.yaml` → `1.23.0+24`。
 
 ## 2.6 第二十四轮迭代验收（v1.22.0 导入流水线 Isolate 化，2026-11-01）
 
