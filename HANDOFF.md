@@ -10,6 +10,7 @@
 > · 第十轮：2026-11-01（v1.9.0 桌面可发现性：快捷键帮助 + 阅读字体）
 > · 第十一轮：2026-11-01（v1.10.0 性能加固：搜索抽取/缓存 + 基准测试）
 > · 第十二轮：2026-11-01（v1.11.0 锚点契约测试 + Android Release 打通）
+> · 第十三轮：2026-11-01（v1.11.1 模拟器 Release APK 冒烟）
 > 本文档面向下一位开发者（或下一次会话），目标是 5 分钟内恢复全部上下文。
 
 ---
@@ -17,11 +18,10 @@
 ## 1. 一句话现状
 
 **代码全部完成且质量达标**（`dart analyze` 0 问题、`flutter test` 104/104 通过）。
-第十二轮（v1.11.0）完成**Android Release 打通**：`flutter build apk --release`
-成功（87.4MB），产物与 SHA256 归档于 `build_qa/wenyue-v1.11.0-release.apk`；
-新增锚点编解码边界测试 11 例（含「缺 page 回退 1」的容忍式解析契约记录）。
-**关键解法**：Android AOT 的 `gen_snapshot` 原生进程读不了中文路径（junction 也被
-解析回原路径），必须把项目完整复制到纯 ASCII 目录（如 `C:\wenyue-build`）构建。
+第十三轮（v1.11.1）完成 **Release APK 模拟器冒烟**：v1.11.0 APK 安装成功
+（versionName=1.11.0）、应用启动且前台运行（pid 稳定、0 崩溃日志）、
+截图确认书库 UI 与工具栏完整、既有文献卡片/进度显示正常。
+第十二轮打通 Android Release 构建（ASCII 目录方案，见 §5）。
 Windows 构建从 `C:\wenyue` junction 进行（原路径中文导致 Release AOT 路径乱码）。
 
 ## 2. 状态一览表
@@ -56,6 +56,7 @@ Windows 构建从 `C:\wenyue` junction 进行（原路径中文导致 Release AO
 | Windows Release 构建 | ✅ 需 junction | 原路径 AOT 产物路径乱码（见 §5）；从 `C:\wenyue` 构建成功 |
 | Android debug APK | ✅ 构建成功 | 中文路径绕过见 §5 |
 | Android Release APK | ✅ v1.11.0 | 87.4MB；**必须从纯 ASCII 完整副本构建**（`robocopy` 到 `C:\wenyue-build`，junction 无效）；产物在 `build_qa/`（不入库） |
+| Release APK 模拟器冒烟 | ✅ v1.11.1 | 安装（versionName=1.11.0）→ 启动 → 前台运行 pid 稳定 / 0 崩溃 / UI 完整；注意 adb 不接受中文路径 APK，需先复制到 %TEMP% |
 | Android 模拟器实测 | 🟡 60% | 导入/书库/MD 渲染 ✅；高亮/主题/EPUB/PDF/进度恢复 ⏳ |
 | WebDAV 同步实测 | ✅（v1.8.0） | 本机自建 WebDAV 服务端到端 4 例；真实第三方服务器（坚果云/NAS）仍建议人工验证一次 |
 | 应用图标 | ✅ 已更换（v1.2.0） | 用户提供 1920×1920 磨砂玻璃图标；已生成 Windows ico / Android mipmap / macOS appiconset，源图存 `docs/icon/` |

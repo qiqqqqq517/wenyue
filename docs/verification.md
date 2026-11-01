@@ -1,6 +1,26 @@
 # 验收记录
 
-> 更新：2026-11-01（第十二轮迭代 v1.11.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+> 更新：2026-11-01（第十三轮迭代 v1.11.1）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+
+## 1.5 第十三轮迭代验收（v1.11.1 Release APK 模拟器冒烟，2026-11-01）
+
+| 项目 | 结果 |
+| --- | --- |
+| `dart analyze` | 0 问题 |
+| `flutter test` | 104/104（无新增用例；本轮为设备级验收） |
+| APK 安装 | ✅ `wenyue-v1.11.0-release.apk` → AVD wenyue_test（Android 15），`versionName=1.11.0` |
+| 应用启动 | ✅ MainActivity 前台（topResumedActivity），pid 3357 稳定 |
+| 崩溃检查 | ✅ logcat 近 100 行 0 条 FATAL/AndroidRuntime |
+| UI 截图 | ✅ 书库网格、工具栏 7 按钮（导入/搜索/排序/视图/统计/导出/帮助）、既有文献卡片与进度条正常 |
+
+流程要点（与 §Android 构建配套）：
+
+- APK 源路径含中文，`adb install` 会 stat 失败 → 先复制到 `%TEMP%` 再安装。
+- 更名归档纪律：第 12 轮归档名误标 v1.11.0（实为 v1.10.0 构建，版本号升级在
+  构建之后）；本轮重新以 v1.11.0 构建并归档正确产物
+  （SHA256 `A1B3A280AA2C29195A79859225EAC9A3F67EF3E1001E48499001E81EAB649873`），
+  旧产物保留为 `wenyue-v1.10.0-release.apk`。
+- **版本**：`pubspec.yaml` → `1.11.1+12`（补丁号 +1 记录验收轮）。
 
 ## 1.4 第十二轮迭代验收（v1.11.0 Android Release + 锚点契约，2026-11-01）
 
