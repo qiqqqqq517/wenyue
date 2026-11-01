@@ -15,6 +15,7 @@ class LibraryRepositoryImpl implements LibraryRepository {
   Stream<List<LibraryDoc>> watchAll({
     String keyword = '',
     DocSort sort = DocSort.recent,
+    bool ascending = false,
   }) {
     final kw = '%${keyword.trim()}%';
     final hasKeyword = keyword.trim().isNotEmpty;
@@ -25,6 +26,7 @@ class LibraryRepositoryImpl implements LibraryRepository {
         (d) => d.title.like(kw) | d.author.like(kw) | d.tags.like(kw),
       );
     }
+    // 升序切换仅对 title（ASC→DESC）生效；时间/进度类保持「最新在前」语义
     switch (sort) {
       case DocSort.recent:
         query.orderBy([
@@ -32,7 +34,9 @@ class LibraryRepositoryImpl implements LibraryRepository {
           (d) => OrderingTerm.desc(d.addedAt),
         ]);
       case DocSort.title:
-        query.orderBy([(d) => OrderingTerm.asc(d.title)]);
+        query.orderBy([
+          (d) => ascending ? OrderingTerm.asc(d.title) : OrderingTerm.desc(d.title),
+        ]);
       case DocSort.added:
         query.orderBy([(d) => OrderingTerm.desc(d.addedAt)]);
       case DocSort.progress:

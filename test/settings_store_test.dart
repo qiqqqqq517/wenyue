@@ -80,6 +80,20 @@ void main() {
       await store.saveLibrarySort('progress');
       expect(store.loadLibrarySort(), 'progress');
     });
+
+    test('标题升降序默认 false，保存后可读回', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final store = SettingsStore(prefs);
+
+      expect(store.loadLibrarySortAscending(), isFalse);
+
+      await store.saveLibrarySortAscending(true);
+      expect(store.loadLibrarySortAscending(), isTrue);
+
+      await store.saveLibrarySortAscending(false);
+      expect(store.loadLibrarySortAscending(), isFalse);
+    });
   });
 
   group('SettingsStore 搜索历史', () {

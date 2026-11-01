@@ -13,7 +13,11 @@ abstract interface class LibraryRepository {
   /// [keyword] 可选搜索关键字，匹配标题和作者。
   /// [sort] 排序方式，默认按最近阅读时间。
   /// 返回的 Stream 在数据库数据变更时自动推送新列表。
-  Stream<List<LibraryDoc>> watchAll({String keyword, DocSort sort});
+  Stream<List<LibraryDoc>> watchAll({
+    String keyword,
+    DocSort sort,
+    bool ascending,
+  });
 
   /// 根据 ID 获取单篇文档（可能返回 `null`，表示不存在）。
   Future<LibraryDoc?> getById(String id);

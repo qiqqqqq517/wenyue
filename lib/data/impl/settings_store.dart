@@ -110,6 +110,15 @@ class SettingsStore {
   Future<void> saveLibrarySort(String v) =>
       _prefs.setString(_kLibrarySort, v);
 
+  /// 书库标题排序的升降序（仅 title 排序生效）。
+  static const _kLibrarySortAscending = 'library.sortAscending';
+
+  bool loadLibrarySortAscending() =>
+      _prefs.getBool(_kLibrarySortAscending) ?? false;
+
+  Future<void> saveLibrarySortAscending(bool v) =>
+      _prefs.setBool(_kLibrarySortAscending, v);
+
   /// 搜索历史（最近优先，去重，最多 10 条；跨文档共享）。
   static const _kSearchHistory = 'reader.searchHistory';
   static const _kSearchHistoryMax = 10;

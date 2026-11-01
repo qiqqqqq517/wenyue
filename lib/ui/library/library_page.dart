@@ -29,7 +29,9 @@ class LibraryPage extends StatefulWidget {
 
 class _LibraryPageState extends State<LibraryPage> {
   String _keyword = '';
-  DocSort _sort = DocSort.recent;  bool _importing = false;
+  DocSort _sort = DocSort.recent;
+  bool _sortAscending = false; // 标题排序的升降序（仅 title 生效）
+  bool _importing = false;
   String _importStatus = ''; // 导入进度文案（如 2/5 · xxx.pdf）
   double _importProgress = 0; // 0.0 ~ 1.0
   String _viewMode = 'grid';
@@ -50,11 +52,20 @@ class _LibraryPageState extends State<LibraryPage> {
     _sort = DocSort.values
         .where((s) => s.name == savedSort)
         .firstOrNull ?? DocSort.recent;
+    _sortAscending = _c.settings.loadLibrarySortAscending();
   }
 
   void _changeSort(DocSort s) {
-    setState(() => _sort = s);
-    _c.settings.saveLibrarySort(s.name);
+    setState(() {
+      if (s == _sort && s == DocSort.title) {
+        // 重复选择标题排序 → 切换升降序
+        _sortAscending = !_sortAscending;
+      } else {
+        _sort = s;
+      }
+    });
+    _c.settings.saveLibrarySort(_sort.name);
+    _c.settings.saveLibrarySortAscending(_sortAscending);
   }
 
   void _toggleMultiSelect(String id) {
@@ -285,7 +296,12 @@ class _LibraryPageState extends State<LibraryPage> {
               itemBuilder: (context) => [
                 _sortItem(DocSort.recent, '最近阅读'),
                 _sortItem(DocSort.added, '添加时间'),
-                _sortItem(DocSort.title, '标题'),
+                _sortItem(
+                  DocSort.title,
+                  _sort == DocSort.title && _sortAscending
+                      ? '标题（当前：A→Z）'
+                      : '标题',
+                ),
                 _sortItem(DocSort.progress, '阅读进度'),
               ],
             ),
@@ -338,7 +354,11 @@ class _LibraryPageState extends State<LibraryPage> {
             Expanded(
               child: StreamBuilder<List<LibraryDoc>>(
                 stream:
-                    _c.libraryRepo.watchAll(keyword: _keyword, sort: _sort),
+                    _c.libraryRepo.watchAll(
+                      keyword: _keyword,
+                      sort: _sort,
+                      ascending: _sortAscending,
+                    ),
                 builder: (context, snap) {
                   final all = snap.data ?? const <LibraryDoc>[];
                   if (snap.connectionState == ConnectionState.waiting) {
