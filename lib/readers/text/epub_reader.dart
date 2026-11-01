@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../domain/entities/anchors.dart';
 import '../../domain/entities/annotation.dart';
 import '../../services/text/epub_container.dart';
+import '../../services/text/text_search.dart';
 import '../reader_core.dart';
 import 'text_doc_view.dart';
 
@@ -200,27 +201,21 @@ class EpubReaderViewState extends State<EpubReaderView>
   Future<List<SearchHit>> search(String query) async {
     final book = _book;
     if (book == null || query.isEmpty) return const [];
+    _hitChapters.clear();
     final hits = <SearchHit>[];
-    final q = query.toLowerCase();
     for (var i = 0; i < book.chapters.length; i++) {
+      if (hits.length >= 200) break;
       final text = book.chapters[i].document.plainText;
       final lower = text.toLowerCase();
-      var from = 0;
-      while (true) {
-        final idx = lower.indexOf(q, from);
-        if (idx < 0) break;
-        final excerptStart = (idx - 16).clamp(0, text.length);
-        final excerptEnd = (idx + q.length + 24).clamp(0, text.length);
+      for (final h in searchPlainText(text, lower, query,
+          maxHits: 200 - hits.length)) {
         hits.add(SearchHit(
-          excerpt: '[第${i + 1}章] …${text.substring(excerptStart, excerptEnd)}…',
-          streamOffset: idx,
+          excerpt: '[第${i + 1}章] ${h.excerpt}',
+          streamOffset: h.offset,
         ));
         // 记录命中所在章节，跳转时使用
-        _hitChapters[idx] = i;
-        from = idx + q.length;
-        if (hits.length >= 200) break;
+        _hitChapters[h.offset] = i;
       }
-      if (hits.length >= 200) break;
     }
     return hits;
   }

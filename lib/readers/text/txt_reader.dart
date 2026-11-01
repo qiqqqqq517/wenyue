@@ -6,6 +6,7 @@ import '../../domain/entities/anchors.dart';
 import '../../domain/entities/annotation.dart';
 import '../../services/text/text_decoder.dart';
 import '../../services/text/text_document.dart';
+import '../../services/text/text_search.dart';
 import '../../services/text/txt_document.dart';
 import '../reader_core.dart';
 import 'text_doc_view.dart';
@@ -33,6 +34,9 @@ class TxtReaderViewState extends State<TxtReaderView> implements ReaderHandle {
   String? _error;
   final GlobalKey<TextDocViewState> _viewKey = GlobalKey();
 
+  /// 预计算的小写文本（搜索用，避免每次查询重复分配大字符串）。
+  String? _lowerText;
+
   /// 当前可视偏移（书签取位用；未上报过时回退初始进度）。
   int get currentOffset {
     final v = _viewKey.currentState?.currentOffset;
@@ -57,6 +61,7 @@ class TxtReaderViewState extends State<TxtReaderView> implements ReaderHandle {
       if (!mounted) return;
       setState(() {
         _doc = TxtTextDoc.parse(text);
+        _lowerText = null;
         _error = null;
       });
     } catch (e) {
@@ -125,23 +130,11 @@ class TxtReaderViewState extends State<TxtReaderView> implements ReaderHandle {
   Future<List<SearchHit>> search(String query) async {
     final doc = _doc;
     if (doc == null || query.isEmpty) return const [];
-    final hits = <SearchHit>[];
-    final lower = doc.plainText.toLowerCase();
-    final q = query.toLowerCase();
-    var from = 0;
-    while (true) {
-      final idx = lower.indexOf(q, from);
-      if (idx < 0) break;
-      final excerptStart = (idx - 16).clamp(0, doc.plainText.length);
-      final excerptEnd = (idx + q.length + 24).clamp(0, doc.plainText.length);
-      hits.add(SearchHit(
-        excerpt: '…${doc.plainText.substring(excerptStart, excerptEnd)}…',
-        streamOffset: idx,
-      ));
-      from = idx + q.length;
-      if (hits.length >= 200) break;
-    }
-    return hits;
+    final lower = _lowerText ??= doc.plainText.toLowerCase();
+    return [
+      for (final h in searchPlainText(doc.plainText, lower, query))
+        SearchHit(excerpt: h.excerpt, streamOffset: h.offset),
+    ];
   }
 
   @override

@@ -1,6 +1,26 @@
 # 验收记录
 
-> 更新：2026-11-01（第十轮迭代 v1.9.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+> 更新：2026-11-01（第十一轮迭代 v1.10.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+
+## 1.3 第十一轮迭代验收（v1.10.0 性能加固，2026-11-01）
+
+| 项目 | 结果 |
+| --- | --- |
+| `dart analyze` | 0 问题 |
+| `flutter test` | 93/93 通过（新增搜索工具 ×7 + 性能基准 ×2） |
+| Windows Release 构建 | ✅ 经 `C:\wenyue` junction 构建并冒烟通过 |
+
+新增内容：
+
+- **搜索抽取**（`lib/services/text/text_search.dart`）：`searchPlainText`
+  纯函数——大小写不敏感、摘要上下文可调、`maxHits` 截断、命中不重叠；
+  Markdown / TXT / EPUB 三个阅读器统一接入（EPUB 逐章节扫描并维护
+  offset→chapter 映射，跨章节上限 200 保持）。
+- **小写文本缓存**：三个阅读器新增 `_lowerText`（加载后惰性计算一次，
+  文档变更时置空），大文档重复搜索不再每次分配 ~1MB 副本。
+- **基准测试**（宽松阈值防退化）：1MB 文本有命中搜索 ≤2s、1MB 无命中
+  全表扫描 ≤2s；另有正确性对拍（命中数与手动 indexOf 一致）。
+- **版本**：`pubspec.yaml` → `1.10.0+10`。
 
 ## 1.2 第十轮迭代验收（v1.9.0 桌面可发现性，2026-11-01）
 
