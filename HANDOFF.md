@@ -32,13 +32,24 @@
 > · 第三十二轮：2026-11-01（v1.30.0 通透 UI 改版：iOS 26 / Liquid Glass 设计语言）
 > · 第三十三轮：2026-11-01（v1.31.0 正文层令牌化补全 + 取色纪律机器护栏）
 > · 第三十四轮：2026-11-01（v1.32.0 反「机器味」审计：引入 Hallmark Floor 硬底线）
+> · 第三十五轮：2026-11-01（v1.32.1 修导入失败：drift 迁移幂等自愈 + PDF 元数据 BOM + 导入失败回滚）
 > 本文档面向下一位开发者（或下一次会话），目标是 5 分钟内恢复全部上下文。
 
 ---
 
 ## 1. 一句话现状
 
-**代码全部完成且质量达标**（`dart analyze lib test` 0 问题、`flutter test` 256/256 通过）。
+**代码全部完成且质量达标**（`dart analyze lib test` 0 问题、`flutter test` 269/269 通过）。
+第三十五轮（v1.32.1）**修掉「导入文档失败」**：根因是 drift 迁移**不可重入** —— 真实库
+曾处于「`user_version` 停在 1、但 `documents` 已含 v2 列 `source_path`」的半迁移中间态
+（drift 迁移并非原子，实测中途抛错时 DDL 已落盘而版本号未推进），于是每次打开数据库都在
+`onUpgrade` 首步抛 `duplicate column name: source_path` ⇒ 书库读不出、导入在副本已写入
+`documents/` 之后崩在 `LibraryRepository.add`（留下永远打不开的孤儿副本）。修复：迁移改为
+**幂等自愈**（每步先查 `PRAGMA table_info` / `sqlite_master` 再改）+ 显式
+`onCreate: (m) => m.createAll()`；同时修 PDF `/Info` 的 UTF-16 字面量未按 BOM 解码
+（真实中文 PDF 标题落库为 `þÿ d d b b…` 乱码）；并把导入失败的回滚范围扩到**含 `writeFile`
+本身**，失败即删掉刚写入的副本。新增 `test/db_migration_test.dart`（4 例，用真实损坏库
+DDL 逐字复刻夹具）+ 补上此前完全缺失的「有效 PDF / EPUB 正向导入」与 BOM/回滚覆盖（共 9 例）。
 第三十四轮（v1.32.0）**引入 Hallmark Floor 反「机器味」硬底线**：参考
 [Hallmark](https://github.com/Nutlope/hallmark)（专抓「一眼就是 AI 做的」的判据集），
 把其中**可移植到 Dart 的条款**改写成 `test/hallmark_floor_test.dart`（7 例），
@@ -70,7 +81,10 @@ Windows 构建从 `C:\wenyue` junction 进行（原路径中文导致 Release AO
 | --- | --- | --- |
 | 领域/数据/服务/阅读器/UI 五层代码 | ✅ 完成 | 分层架构，见 §4 |
 | `dart analyze` | ✅ 0 问题 | 注意：中文路径下只能用 `dart analyze`，`flutter analyze` 会崩 |
-| `flutter test` | ✅ 256/256 | v1.29.0 的 181 + 设计令牌 41 + 玻璃组件 17 + 页面冒烟 4 + 取色纪律 6 + Hallmark Floor 7 |
+| `flutter test` | ✅ 269/269 | v1.29.0 的 181 + 设计令牌 41 + 玻璃组件 17 + 页面冒烟 4 + 取色纪律 6 + Hallmark Floor 7 + 迁移自愈 4 + 导入正向/元数据/回滚 9 |
+| 迁移幂等自愈 | ✅ 修复（v1.32.1） | `onUpgrade` 每步先做存在性判断；修掉「`user_version=1` 且已含 `source_path`」的历史库**打开即失败**（根因见 §1）；`onCreate` 显式 `createAll()` |
+| 导入孤儿回滚 | ✅ 新增（v1.32.1） | `importSingle` 把 `writeFile` 及后续步骤纳入 try，失败即删掉刚写入的 `uuid.ext`；同步/备份路径不复用该入口（`importSingle` 全仓仅 `importFiles` 一个调用点） |
+| PDF /Info 编码 | ✅ 修复（v1.32.1） | `_pdfInfoString` 先按 PDF 转义还原字节、再按 BOM 解 UTF-16BE/LE；此前 UTF-16 字面量标题落库为 `þÿ…` 乱码 |
 | 取色纪律护栏 | ✅ 新增（v1.31.0） | `test/theme_discipline_test.dart` 扫描 lib/ 全部 dart，除白名单外禁止 `Color(0x…)` / `colorScheme.` / M3 容器色 |
 | 反「机器味」护栏 | ✅ 新增（v1.32.0） | `test/hallmark_floor_test.dart` 移植 Hallmark Floor 可移植条款：禁蓝紫渐变 / 禁 tracked-caps / 禁中圆点模板标点 / 禁 emoji 当图标 |
 | 通透 UI 设计语言 | ✅ 新增（v1.30.0） | `lib/ui/theme.dart` 令牌 + `lib/ui/widgets/glass.dart` 材质库；规范见 `docs/design-tokens.md` |

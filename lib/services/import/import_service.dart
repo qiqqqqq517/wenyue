@@ -102,38 +102,51 @@ class ImportService {
 
     final id = _uuid.v4();
     final storedName = _store.docFileName(id, name);
-    await _store.writeFile(storedName, bytes);
 
-    // CPU 密集部分（哈希 + 文本类元数据提取）放后台 Isolate，避免大文件卡 UI；
-    // PDF/EPUB 依赖原生引擎不能跨 Isolate，元数据在主 Isolate 补提取。
-    var prepared = await Isolate.run(() => _prepareInIsolate(format, bytes));
-    if (format == DocFormat.pdf || format == DocFormat.epub) {
-      final meta = await _extractMetadata(format, input, bytes);
-      prepared = (
-        hash: prepared.hash,
-        title: meta.title,
-        author: meta.author,
-      );
+    // 回滚范围必须包含 writeFile 本身：写盘中途失败（磁盘满 / IO 错误）时
+    // 可能已经建出半个文件，那份同样打不开。三个 DocFileStore 实现对不存在
+    // 的文件 remove 都是无害的（生产实现先 exists() 判断），故可安全前置。
+    try {
+      await _store.writeFile(storedName, bytes);
+
+      // CPU 密集部分（哈希 + 文本类元数据提取）放后台 Isolate，避免大文件卡 UI；
+      // PDF/EPUB 依赖原生引擎不能跨 Isolate，元数据在主 Isolate 补提取。
+      var prepared = await Isolate.run(() => _prepareInIsolate(format, bytes));
+      if (format == DocFormat.pdf || format == DocFormat.epub) {
+        final meta = await _extractMetadata(format, input, bytes);
+        prepared = (
+          hash: prepared.hash,
+          title: meta.title,
+          author: meta.author,
+        );
+      }
+
+      final now = DateTime.now();
+      return await _library.add(LibraryDoc(
+        id: id,
+        title: prepared.title ?? _titleFromFileName(name),
+        author: prepared.author,
+        format: format,
+        fileName: storedName,
+        fileSize: bytes.length,
+        tags: const [],
+        lastPositionJson: null,
+        progress: 0,
+        addedAt: now,
+        lastOpenedAt: null,
+        updatedAt: now,
+        deletedAt: null,
+        contentHash: prepared.hash,
+        sourcePath: input.localPath,
+      ));
+    } catch (_) {
+      try {
+        await _store.remove(storedName);
+      } catch (_) {
+        // 清理失败不得掩盖原始错误
+      }
+      rethrow;
     }
-
-    final now = DateTime.now();
-    return _library.add(LibraryDoc(
-      id: id,
-      title: prepared.title ?? _titleFromFileName(name),
-      author: prepared.author,
-      format: format,
-      fileName: storedName,
-      fileSize: bytes.length,
-      tags: const [],
-      lastPositionJson: null,
-      progress: 0,
-      addedAt: now,
-      lastOpenedAt: null,
-      updatedAt: now,
-      deletedAt: null,
-      contentHash: prepared.hash,
-      sourcePath: input.localPath,
-    ));
   }
 
   Future<({String? title, String? author})> _extractMetadata(
@@ -209,41 +222,99 @@ class ImportService {
   }
 
   String? _pdfInfoString(Uint8List bytes, String key) {
-    // 匹配 /Title (文本) 或 /Title <HEX>（仅处理 UTF-16BE 十六进制与 ASCII 字面量）
+    // 匹配 /Title (文本) 或 /Title <HEX>
     final pattern = RegExp('/$key\\s*(?:\\(((?:[^()\\\\]|\\\\.)*)\\)|<([0-9A-Fa-f\\s]+)>)');
     final m = pattern.firstMatch(String.fromCharCodes(bytes));
     if (m == null) return null;
+
+    // 字面量串：先按 PDF 转义规则还原为原始字节，再按 BOM 判编码。
+    // 若不还原 BOM，UTF-16 标题会原样落库成 `þÿ\0d\0d…` 这类乱码
+    // （真实中文 PDF 实测：/Title 为 UTF-16BE 字面量）。
     if (m.group(1) != null) {
-      final lit = m
-          .group(1)!
-          .replaceAllMapped(RegExp(r'\\([nrt()\\])'), (mm) {
-        return switch (mm.group(1)) {
-          'n' => '\n',
-          'r' => '\r',
-          't' => '\t',
-          _ => mm.group(1)!,
-        };
-      }).trim();
-      return lit.isEmpty ? null : lit;
+      final s =
+          _decodePdfTextBytes(_pdfLiteralBytes(m.group(1)!)).trim();
+      return s.isEmpty ? null : s;
     }
+
+    // 十六进制串：<FEFF...> 这类同样按 BOM 判编码。
     final hex = (m.group(2) ?? '').replaceAll(RegExp(r'\s'), '');
     if (hex.isEmpty || hex.length % 2 != 0) return null;
     final out = <int>[];
     for (var i = 0; i < hex.length; i += 2) {
       out.add(int.parse(hex.substring(i, i + 2), radix: 16));
     }
-    // BOM UTF-16BE
-    if (out.length >= 2 && out[0] == 0xFE && out[1] == 0xFF) {
-      final sb = StringBuffer();
-      for (var i = 2; i + 1 < out.length; i += 2) {
-        final cp = (out[i] << 8) | out[i + 1];
-        sb.writeCharCode(cp);
-      }
-      final s = sb.toString().trim();
-      return s.isEmpty ? null : s;
-    }
-    final s = String.fromCharCodes(out).trim();
+    final s = _decodePdfTextBytes(out).trim();
     return s.isEmpty ? null : s;
+  }
+
+  /// 还原 PDF 字面量串的转义序列为原始字节（`\n` `\t` `\(` `\\` 及八进制 `\ddd`）。
+  static List<int> _pdfLiteralBytes(String raw) {
+    final out = <int>[];
+    for (var i = 0; i < raw.length; i++) {
+      final c = raw.codeUnitAt(i);
+      if (c != 0x5C /* \ */ || i + 1 >= raw.length) {
+        out.add(c & 0xFF);
+        continue;
+      }
+      final n = raw.codeUnitAt(++i);
+      switch (n) {
+        case 0x6E: // n
+          out.add(0x0A);
+        case 0x72: // r
+          out.add(0x0D);
+        case 0x74: // t
+          out.add(0x09);
+        case 0x62: // b
+          out.add(0x08);
+        case 0x66: // f
+          out.add(0x0C);
+        case 0x28: // (
+          out.add(0x28);
+        case 0x29: // )
+          out.add(0x29);
+        case 0x5C: // 反斜杠
+          out.add(0x5C);
+        default:
+          if (n >= 0x30 && n <= 0x37) {
+            // 八进制转义：最多再吃两位
+            var v = n - 0x30;
+            for (var k = 0; k < 2 && i + 1 < raw.length; k++) {
+              final d = raw.codeUnitAt(i + 1);
+              if (d < 0x30 || d > 0x37) break;
+              v = v * 8 + (d - 0x30);
+              i++;
+            }
+            out.add(v & 0xFF);
+          } else {
+            out.add(n & 0xFF);
+          }
+      }
+    }
+    return out;
+  }
+
+  /// 按 BOM 解码 PDF 字符串字节：UTF-16BE / UTF-16LE，无 BOM 时按 Latin-1 兜底。
+  static String _decodePdfTextBytes(List<int> bytes) {
+    if (bytes.length >= 2) {
+      if (bytes[0] == 0xFE && bytes[1] == 0xFF) {
+        return _utf16FromBytes(bytes.sublist(2), littleEndian: false);
+      }
+      if (bytes[0] == 0xFF && bytes[1] == 0xFE) {
+        return _utf16FromBytes(bytes.sublist(2), littleEndian: true);
+      }
+    }
+    return String.fromCharCodes(bytes);
+  }
+
+  /// 按 2 字节一组还原 UTF-16 码元（`String.fromCharCodes` 会合并代理对）。
+  static String _utf16FromBytes(List<int> bytes, {required bool littleEndian}) {
+    final units = <int>[];
+    for (var i = 0; i + 1 < bytes.length; i += 2) {
+      units.add(littleEndian
+          ? bytes[i] | (bytes[i + 1] << 8)
+          : (bytes[i] << 8) | bytes[i + 1]);
+    }
+    return String.fromCharCodes(units);
   }
 
   Future<({String? title, String? author})> _epubMeta(Uint8List bytes) async {
