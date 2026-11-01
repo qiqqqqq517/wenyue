@@ -1,6 +1,34 @@
 # 验收记录
 
-> 更新：2026-11-01（第十一轮迭代 v1.10.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+> 更新：2026-11-01（第十二轮迭代 v1.11.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+
+## 1.4 第十二轮迭代验收（v1.11.0 Android Release + 锚点契约，2026-11-01）
+
+| 项目 | 结果 |
+| --- | --- |
+| `dart analyze` | 0 问题 |
+| `flutter test` | 104/104 通过（新增锚点编解码边界 ×11） |
+| Android Release APK | ✅ `app-release.apk` 87.4MB（tree-shaken 图标字体 1645KB→7KB） |
+| APK 归档 | `build_qa/wenyue-v1.11.0-release.apk`，SHA256 `88008F81…C047382` |
+| Windows Release 构建 | ✅ 经 `C:\wenyue` junction 构建并冒烟通过 |
+
+关键发现与解法（dead-end 记录）：
+
+- **Android AOT `gen_snapshot` 无法读中文路径**：junction `C:\wenyue` 无效——
+  Flutter 工具会把路径解析回真实位置 `D:\01项目\文阅\.dart_tool\...app.dill`，
+  gen_snapshot（原生 exe，GBK 代码页）报 "Unable to read file"（exit 255）。
+- **解法**：`robocopy` 完整复制项目到纯 ASCII 目录 `C:\wenyue-build`
+  （排除 build/.git/.dart_tool/build_qa/.mimosa/.v2c），在那里 pub get + build，
+  构建后归档 APK 并删除临时目录。Windows Release 不受影响（可用 junction，
+  因 CMake/MSVC 接受 junction 路径）。
+
+新增测试（锚点编解码边界，`test/anchors_test.dart`）：
+
+- `DocPosition`：null/空串/坏 JSON/缺字段回退默认值；往返一致。
+- `TextAnchor`：chapter 缺失为 null（全文锚点）；往返一致。
+- `PdfAnchor`：缺 `page` **回退默认页 1**——记录容忍式解析契约
+  （`_jumpToAnnotation` 先按 PdfAnchor 再按 TextAnchor 试解，回退是有意行为）。
+- **版本**：`pubspec.yaml` → `1.11.0+11`。
 
 ## 1.3 第十一轮迭代验收（v1.10.0 性能加固，2026-11-01）
 
