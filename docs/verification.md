@@ -1,6 +1,25 @@
 # 验收记录
 
-> 更新：2026-11-01（第二十六轮迭代 v1.24.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+> 更新：2026-11-01（第二十七轮迭代 v1.25.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+
+## 2.9 第二十七轮迭代验收（v1.25.0 周报导出 CSV，2026-11-01）
+
+| 项目 | 结果 |
+| --- | --- |
+| `dart analyze` | 0 问题 |
+| `flutter test` | 159/159（新增 CSV 导出测试 ×4） |
+| Windows Release 构建 | ✅ 经 `C:\wenyue` junction 构建并冒烟通过 |
+
+新增内容：
+
+- **CSV 导出**（`exportWeeklyReportCsv`）：两个 section——逐日
+  `date,seconds`（ISO 日期、无记录补零、秒为原始数值便于电子表格计算）与
+  常读文献 `doc_id,title,seconds`（ID→标题映射）；值含逗号/引号/换行按 CSV
+  规范转义；topDocs 为空时省略该 section（含表头）。
+- **统计页**：导出按钮改为菜单（周报 Markdown / 周报数据 CSV）；CSV 写入
+  UTF-8 BOM（Excel 直接打开中文不乱码）；两种格式仍同步复制剪贴板。
+- **测试 ×4**：逐日补零、标题映射、CSV 转义、空数据省略 section。
+- **版本**：`pubspec.yaml` → `1.25.0+26`。
 
 ## 2.8 第二十六轮迭代验收（v1.24.0 批注按类型筛选，2026-11-01）
 

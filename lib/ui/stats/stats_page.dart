@@ -40,24 +40,37 @@ class _StatsPageState extends State<StatsPage> {
     return _StatsData(summary: summary, titles: titles);
   }
 
-  /// 导出本周阅读周报（Markdown）。
-  Future<void> _exportWeekly() async {
+  /// 导出本周阅读周报（Markdown 或 CSV）。
+  Future<void> _exportWeekly({required String format}) async {
     try {
       final data = await _future;
       if (data == null || !mounted) return;
-      final md = ReadingReportExporter.exportWeeklyReport(
-        data.summary,
-        DateTime.now(),
-        docTitles: data.titles,
-      );
       final now = DateTime.now();
       final stamp =
           '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-      final saved = await FilePicker.saveFile(
-        fileName: '文阅阅读周报-$stamp.md',
-        bytes: Uint8List.fromList(utf8.encode(md)),
-      );
-      await Clipboard.setData(ClipboardData(text: md));
+      final String content;
+      final String fileName;
+      if (format == 'csv') {
+        content = ReadingReportExporter.exportWeeklyReportCsv(
+          data.summary,
+          now,
+          docTitles: data.titles,
+        );
+        fileName = '文阅阅读周报-$stamp.csv';
+      } else {
+        content = ReadingReportExporter.exportWeeklyReport(
+          data.summary,
+          now,
+          docTitles: data.titles,
+        );
+        fileName = '文阅阅读周报-$stamp.md';
+      }
+      // CSV 加 UTF-8 BOM（Excel 直接打开中文不乱码）
+      final bytes = format == 'csv'
+          ? Uint8List.fromList(utf8.encode('\uFEFF$content'))
+          : Uint8List.fromList(utf8.encode(content));
+      final saved = await FilePicker.saveFile(fileName: fileName, bytes: bytes);
+      await Clipboard.setData(ClipboardData(text: content));
       if (saved != null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('周报已导出到 $saved（内容同时已复制到剪贴板）')),
@@ -102,10 +115,17 @@ class _StatsPageState extends State<StatsPage> {
       appBar: AppBar(
         title: const Text('阅读统计'),
         actions: [
-          IconButton(
-            tooltip: '导出周报（Markdown）',
-            onPressed: _exportWeekly,
+          PopupMenuButton<String>(
+            tooltip: '导出周报',
             icon: const Icon(Icons.ios_share),
+            onSelected: (v) {
+              if (v == 'md') _exportWeekly(format: 'md');
+              if (v == 'csv') _exportWeekly(format: 'csv');
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(value: 'md', child: Text('周报（Markdown）')),
+              PopupMenuItem(value: 'csv', child: Text('周报数据（CSV）')),
+            ],
           ),
           IconButton(
             tooltip: '重置统计',

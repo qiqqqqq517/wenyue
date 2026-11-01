@@ -80,4 +80,44 @@ class ReadingReportExporter {
     final hours = minutes / 60;
     return '${hours.toStringAsFixed(hours.truncateToDouble() == hours ? 0 : 1)} 小时';
   }
+
+  /// 生成机器可读 CSV（逐日 + 常读文献两个 section，秒为原始数值）。
+  ///
+  /// 列：`date,seconds` 与 `doc_id,title,seconds`；值含逗号/引号/换行时转义。
+  static String exportWeeklyReportCsv(
+    ReadingSummary summary,
+    DateTime now, {
+    Map<String, String> docTitles = const {},
+  }) {
+    final buf = StringBuffer();
+
+    buf.writeln('# 本周逐日阅读时长（秒）');
+    buf.writeln('date,seconds');
+    final days = summary.window.keys.toList()..sort();
+    for (final day in days) {
+      final date =
+          '${day.year.toString().padLeft(4, '0')}-${_two(day.month)}-${_two(day.day)}';
+      buf.writeln('$date,${summary.window[day] ?? 0}');
+    }
+
+    if (summary.topDocs.isNotEmpty) {
+      buf.writeln();
+      buf.writeln('# 常读文献');
+      buf.writeln('doc_id,title,seconds');
+      for (final entry in summary.topDocs) {
+        final title = docTitles[entry.key] ?? entry.key;
+        buf.writeln(
+            '${_csvField(entry.key)},${_csvField(title)},${entry.value}');
+      }
+    }
+
+    return buf.toString();
+  }
+
+  static String _csvField(String v) {
+    if (v.contains(',') || v.contains('"') || v.contains('\n')) {
+      return '"${v.replaceAll('"', '""')}"';
+    }
+    return v;
+  }
 }
