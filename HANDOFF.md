@@ -25,17 +25,17 @@
 > · 第二十五轮：2026-11-01（v1.23.0 批注引用保护）
 > · 第二十六轮：2026-11-01（v1.24.0 批注按类型筛选）
 > · 第二十七轮：2026-11-01（v1.25.0 周报导出 CSV 格式）
+> · 第二十八轮：2026-11-01（v1.26.0 批注删除确认）
 > 本文档面向下一位开发者（或下一次会话），目标是 5 分钟内恢复全部上下文。
 
 ---
 
 ## 1. 一句话现状
 
-**代码全部完成且质量达标**（`dart analyze` 0 问题、`flutter test` 159/159 通过）。
-第二十七轮（v1.25.0）完成**周报导出 CSV 格式**：`exportWeeklyReportCsv`
-（逐日 `date,seconds` 补零 + 常读文献 `doc_id,title,seconds`，值含逗号/引号
-按 CSV 转义，topDocs 为空省略该 section），统计页导出菜单分 Markdown/CSV
-两项，CSV 写 UTF-8 BOM。第二十六轮批注筛选；二十五轮引用保护。
+**代码全部完成且质量达标**（`dart analyze` 0 问题、`flutter test` 163/163 通过）。
+第二十八轮（v1.26.0）完成**批注删除确认**：删除前弹确认框显示类型与内容预览
+（`deletePreviewText` 纯函数——优先引用、回退笔记、都空给占位、60 字符截断），
+防误删；确认按钮用错误色。第二十七轮 CSV 导出；二十六轮批注筛选。
 Windows 构建从 `C:\wenyue` junction 进行（原路径中文导致 Release AOT 路径乱码）。
 
 ## 2. 状态一览表
@@ -59,6 +59,7 @@ Windows 构建从 `C:\wenyue` junction 进行（原路径中文导致 Release AO
 | 批注引用保护 | ✅ 新增（v1.23.0） | 选区归一（反向交换/零长拒绝）+ 引用截断 2000 字符（防全选膨胀），MD/TXT 创建路径接入 |
 | 批注类型筛选 | ✅ 新增（v1.24.0） | byDoc/watchByDoc kinds 可选参数（isIn 索引查询）+ 批注侧栏筛选 chips |
 | 周报 CSV 导出 | ✅ 新增（v1.25.0） | exportWeeklyReportCsv（逐日补零+常读文献+CSV 转义）+ 统计页导出菜单双格式（CSV 带 BOM） |
+| 批注删除确认 | ✅ 新增（v1.26.0） | 删除前确认框（类型+内容预览，deletePreviewText 60 字符截断），防误删 |
 | Android Release APK | ✅ 新增（v1.11.0） | 87.4MB；ASCII 目录构建（见 §5）；产物 build_qa/wenyue-v1.11.0-release.apk |
 | 快捷键帮助 | ✅ 新增（v1.9.0） | `Ctrl+/` 弹窗，按书库/阅读器分组列出全部快捷键 |
 | 阅读字体 | ✅ 新增（v1.9.0） | 设置页字体选择（5 档），持久化 `reader.fontFamily` |

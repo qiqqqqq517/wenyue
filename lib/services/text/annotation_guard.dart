@@ -29,3 +29,11 @@ String clampQuote(String quote, {int maxQuoteLength = kMaxAnnotationQuoteLength}
   if (quote.length <= maxQuoteLength) return quote;
   return '${quote.substring(0, maxQuoteLength)}…（引用过长已截断）';
 }
+
+/// 删除确认对话框的预览文案：优先引用，其次笔记内容，都空给占位。
+String deletePreviewText(String quote, String note,
+    {int maxQuoteLength = 60}) {
+  final source = quote.isNotEmpty ? quote : note;
+  if (source.isEmpty) return '（无内容）';
+  return clampQuote(source, maxQuoteLength: maxQuoteLength);
+}

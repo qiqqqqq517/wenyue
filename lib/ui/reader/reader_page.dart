@@ -11,6 +11,7 @@ import '../../domain/entities/document.dart';
 import '../../domain/entities/reading_session.dart';
 import '../../readers/pdf/pdf_reader.dart';
 import '../../readers/reader_core.dart';
+import '../../services/text/annotation_guard.dart';
 import '../../services/text/toc_active.dart';
 import '../../readers/text/epub_reader.dart';
 import '../../readers/text/markdown_reader.dart';
@@ -437,6 +438,8 @@ class _ReaderPageState extends State<ReaderPage> {
                   if (ctx.mounted) Navigator.pop(ctx);
                 },
                 onDelete: () async {
+                  final ok = await _confirmDeleteAnnotation(ctx, n);
+                  if (ok != true) return;
                   await _c.annotationRepo.delete(n.id);
                   if (ctx.mounted) Navigator.pop(ctx);
                 },
@@ -465,11 +468,42 @@ class _ReaderPageState extends State<ReaderPage> {
     }
   }
 
+  /// 批注删除确认：显示类型与引用摘要，防误删。
+  Future<bool?> _confirmDeleteAnnotation(BuildContext ctx, Annotation n) {
+    final kindLabel = switch (n.kind) {
+      AnnotationKind.highlight => '高亮',
+      AnnotationKind.note => '笔记',
+      AnnotationKind.bookmark => '书签',
+    };
+    final preview = n.quote.isNotEmpty
+        ? clampQuote(n.quote, maxQuoteLength: 60)
+        : (n.note.isEmpty ? '（无内容）' : clampQuote(n.note, maxQuoteLength: 60));
+    return showDialog<bool>(
+      context: ctx,
+      builder: (ctx) => AlertDialog(
+        title: Text('删除$kindLabel？'),
+        content: Text(preview, maxLines: 3, overflow: TextOverflow.ellipsis),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<String?> _editNoteDialog(BuildContext ctx, String initial) {
     final controller = TextEditingController(text: initial);
     return showDialog<String>(
-      context: ctx,
-      builder: (ctx) => AlertDialog(
+      context: ctx,      builder: (ctx) => AlertDialog(
         title: const Text('编辑笔记'),
         content: TextField(
           controller: controller,

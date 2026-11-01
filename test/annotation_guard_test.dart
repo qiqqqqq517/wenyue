@@ -47,4 +47,23 @@ void main() {
       expect(clampQuote('abcdef', maxQuoteLength: 3), 'abc…（引用过长已截断）');
     });
   });
+
+  group('deletePreviewText', () {
+    test('优先引用文本', () {
+      expect(deletePreviewText('引用内容', '笔记内容'), '引用内容');
+    });
+
+    test('引用为空时用笔记内容', () {
+      expect(deletePreviewText('', '笔记内容'), '笔记内容');
+    });
+
+    test('都为空给占位', () {
+      expect(deletePreviewText('', ''), '（无内容）');
+    });
+
+    test('超长引用截断到确认框上限 60', () {
+      final out = deletePreviewText('x' * 100, '');
+      expect(out.length, 60 + '…（引用过长已截断）'.length);
+    });
+  });
 }
