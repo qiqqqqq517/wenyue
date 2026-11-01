@@ -11,6 +11,7 @@ import '../../domain/entities/document.dart';
 import '../../domain/entities/reading_session.dart';
 import '../../readers/pdf/pdf_reader.dart';
 import '../../readers/reader_core.dart';
+import '../../services/text/toc_active.dart';
 import '../../readers/text/epub_reader.dart';
 import '../../readers/text/markdown_reader.dart';
 import '../../readers/text/txt_reader.dart';
@@ -138,6 +139,10 @@ class _ReaderPageState extends State<ReaderPage> {
       if (!_pageFocus.hasFocus) {
         _pageController.text = '$_pdfPage';
       }
+    }
+    // 大纲当前章节高亮：位置变化即刷新
+    if (_tocOpen) {
+      setState(() {});
     }
     _progressDebounce?.cancel();
     _progressDebounce = Timer(const Duration(seconds: 2), () async {
@@ -292,6 +297,26 @@ class _ReaderPageState extends State<ReaderPage> {
   }
 
   List<TocItem> _tocCache = const [];
+
+  /// 当前激活大纲条目下标（PDF 按页码、EPUB 按章节、文本按偏移）。
+  int? _activeTocIndex() {
+    final format = _doc?.format;
+    switch (format) {
+      case DocFormat.pdf:
+        return activeTocIndexForPage(_tocCache, _pdfPage);
+      case DocFormat.epub:
+        return activeTocIndexForChapter(
+            _tocCache, _epubKey.currentState?.currentChapter ?? 0);
+      case DocFormat.markdown:
+        final off = _mdKey.currentState?.currentOffset;
+        return off == null ? null : activeTocIndexForOffset(_tocCache, off);
+      case DocFormat.txt:
+        final off = _txtKey.currentState?.currentOffset;
+        return off == null ? null : activeTocIndexForOffset(_tocCache, off);
+      case null:
+        return null;
+    }
+  }
 
   /// 持续搜索面板状态（借鉴 Sioyek 的命中导航）。
   List<SearchHit> _searchHits = const [];
@@ -631,6 +656,7 @@ class _ReaderPageState extends State<ReaderPage> {
             _TocPanel(
               items: _tocCache,
               width: _tocPanelWidth,
+              activeIndex: _activeTocIndex(),
               onJump: (item) {
                 setState(() => _tocOpen = false);
                 _handle?.jumpTo(item);
@@ -859,12 +885,16 @@ class _TocPanel extends StatelessWidget {
     required this.width,
     required this.onJump,
     required this.onClose,
+    this.activeIndex,
   });
 
   final List<TocItem> items;
   final double width;
   final void Function(TocItem item) onJump;
   final VoidCallback onClose;
+
+  /// 当前所在章节下标（null = 不高亮）。
+  final int? activeIndex;
 
   @override
   Widget build(BuildContext context) {
@@ -898,20 +928,30 @@ class _TocPanel extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 itemBuilder: (context, i) {
                   final item = items[i];
+                  final isActive = i == activeIndex;
                   return ListTile(
                     contentPadding: EdgeInsets.only(
                         left: 12.0 + (item.level - 1) * 16, right: 8),
                     dense: item.level > 1,
                     visualDensity: VisualDensity.compact,
+                    selected: isActive,
                     title: Text(
                       item.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontWeight: item.level <= 1 ? FontWeight.w600 : null,
+                        fontWeight:
+                            item.level <= 1 || isActive ? FontWeight.w600 : null,
                         fontSize: item.level <= 1 ? 14 : 13,
+                        color: isActive
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.onSurface,
                       ),
                     ),
+                    trailing: isActive
+                        ? Icon(Icons.chevron_right,
+                            size: 18, color: theme.colorScheme.primary)
+                        : null,
                     onTap: () => onJump(item),
                   );
                 },

@@ -1,6 +1,26 @@
 # 验收记录
 
-> 更新：2026-11-01（第二十二轮迭代 v1.20.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+> 更新：2026-11-01（第二十三轮迭代 v1.21.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+
+## 2.5 第二十三轮迭代验收（v1.21.0 大纲当前章节高亮，2026-11-01）
+
+| 项目 | 结果 |
+| --- | --- |
+| `dart analyze` | 0 问题 |
+| `flutter test` | 142/142（新增大纲激活纯函数测试 ×9） |
+| Windows Release 构建 | ✅ 经 `C:\wenyue` junction 构建并冒烟通过 |
+
+新增内容：
+
+- **激活计算**（`lib/services/text/toc_active.dart`）：三格式统一纯函数——
+  `activeTocIndexForPage`（PDF 页码）/ `ForChapter`（EPUB 章节）/ `ForOffset`
+  （MD/TXT 偏移）；语义为激活「最近经过」的位置最大者，平手取更深一级；
+  跳过无位置条目；空大纲/早于全部条目返回 null。
+- **UI 接入**：大纲侧栏（`_TocPanel`）`activeIndex` 高亮当前章节
+  （主色文字 + w600 + 右箭头），`_onProgress` 位置变化时刷新。
+- **测试 ×9**：页码前进/停留/同页多级/越界/空大纲/无页码跳过、章节、偏移。
+- 首版比较逻辑 bug（`>=` 同位置自替换 + level 优先于位置）由测试捕获后修正。
+- **版本**：`pubspec.yaml` → `1.21.0+22`。
 
 ## 2.4 第二十二轮迭代验收（v1.20.0 标题排序升序切换，2026-11-01）
 
