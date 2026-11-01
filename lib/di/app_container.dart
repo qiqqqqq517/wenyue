@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+
+import 'package:drift/native.dart' show NativeDatabase;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -41,6 +44,32 @@ class AppContainer {
   final BackupService backup;
 
   static AppContainer? _instance;
+
+  /// 测试构造：内存数据库 + 内存文件存储（不触碰真实数据目录）。
+  ///
+  /// [prefs] 由测试提供（如 `SharedPreferences.getInstance()` 配 mock 值），
+  /// 生产组合根不使用本方法。
+  static Future<AppContainer> forTesting(
+    SharedPreferences prefs,
+  ) async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final store = _MemoryFileStore();
+    return AppContainer._(
+      database: db,
+      libraryRepo: LibraryRepositoryImpl(db),
+      annotationRepo: AnnotationRepositoryImpl(db),
+      statsRepo: ReadingStatsRepositoryImpl(db),
+      fileStore: store,
+      metaStore: SyncMetaStoreImpl(db),
+      settings: SettingsStore(prefs),
+      importer: ImportService(LibraryRepositoryImpl(db), store),
+      backup: BackupService(
+        store,
+        LibraryRepositoryImpl(db),
+        AnnotationRepositoryImpl(db),
+      ),
+    );
+  }
 
   /// 应用单例（组合根）。
   static Future<AppContainer> instance() async {
@@ -127,4 +156,48 @@ class AppContainer {
     await database.close();
     _instance = null;
   }
+}
+
+/// 测试用内存文件存储（不落盘）。
+class _MemoryFileStore implements DocFileStore {
+  final Map<String, List<int>> _files = {};
+
+  @override
+  Future<void> ensureDirs() async {}
+
+  @override
+  Future<String> backupDirectory() async => '/mem/backups';
+
+  @override
+  String docFileName(String uuid, String originalName) {
+    final dot = originalName.lastIndexOf('.');
+    final ext = dot >= 0 ? originalName.substring(dot + 1) : 'bin';
+    return '$uuid.$ext';
+  }
+
+  @override
+  Future<String> pathOf(String fileName) async => '/mem/$fileName';
+
+  @override
+  Future<(int, String)> importCopy(String sourcePath, String storedName) async {
+    final bytes = sourcePath.codeUnits;
+    _files[storedName] = bytes;
+    return (bytes.length, 'hash-$storedName');
+  }
+
+  @override
+  Future<void> writeFile(String storedName, List<int> bytes) async =>
+      _files[storedName] = List.of(bytes);
+
+  @override
+  Future<Uint8List?> readFile(String storedName) async {
+    final v = _files[storedName];
+    return v == null ? null : Uint8List.fromList(v);
+  }
+
+  @override
+  Future<bool> exists(String storedName) async => _files.containsKey(storedName);
+
+  @override
+  Future<void> remove(String storedName) async => _files.remove(storedName);
 }

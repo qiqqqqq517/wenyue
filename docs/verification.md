@@ -1,6 +1,29 @@
 # 验收记录
 
-> 更新：2026-11-01（第六轮迭代 v1.5.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+> 更新：2026-11-01（第七轮迭代 v1.6.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+
+## 0.9 第七轮迭代验收（v1.6.0 质量加固，2026-11-01）
+
+| 项目 | 结果 |
+| --- | --- |
+| `dart analyze` | 0 问题 |
+| `flutter test` | 69/69 通过（新增 TextDocView widget 测试 ×6） |
+| Windows Release 构建 | ✅ 经 `C:\wenyue` junction 构建并冒烟通过 |
+
+新增内容：
+
+- **widget 级测试**（`test/text_doc_view_widget_test.dart`，6 例）：
+  标题/正文渲染、代码块高亮富文本（SelectableText.rich 纯文本与多段 span）、
+  表格单元格、远程图片占位文案、引用与列表、空文档占位。
+- **测试构造**：`AppContainer.forTesting(prefs)`（内存 drift DB + 内存文件存储）。
+- **版本**：`pubspec.yaml` → `1.6.0+6`。
+
+已记录的失败方案（dead-end）：
+
+- 书库页的 drift 流 + 未读卡片不确定进度条动画使 `pumpAndSettle` 永不收敛；
+  改用 `pump` 有限帧后仍偶发 pending-timer 断言（`addTearDown` 在断言之后执行），
+  用例体内「先卸树再关库」仍不彻底 → 本轮改为不依赖容器的 `TextDocView` widget 测试，
+  书库页交互改用后续人工冒烟 + 纯函数单测覆盖。
 
 ## 0.8 第六轮迭代验收（v1.5.0 渲染增强，2026-11-01）
 
