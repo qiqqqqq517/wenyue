@@ -1,6 +1,24 @@
 # 验收记录
 
-> 更新：2026-11-01（第七轮迭代 v1.6.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+> 更新：2026-11-01（第八轮迭代 v1.7.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+
+## 1.0 第八轮迭代验收（v1.7.0 导出增强，2026-11-01）
+
+| 项目 | 结果 |
+| --- | --- |
+| `dart analyze` | 0 问题 |
+| `flutter test` | 73/73 通过（新增导出 ×4；并行跑会因 native DLL 竞争偶发失败，验收以 `--concurrency=1` 串行为准） |
+| Windows Release 构建 | ✅ 经 `C:\wenyue` junction 构建并冒烟通过 |
+
+新增内容：
+
+- **全书库批注合集**（`NotesExporter.exportAllMarkdown`）：按文献分节、
+  跳过无批注文献、统计文献数与批注数；书签/高亮/笔记三种条目分样式渲染。
+- **书库清单 CSV**（`NotesExporter.exportLibraryCsv`）：标题/作者/格式/大小/
+  进度/标签/添加时间/最近阅读/文件名；CSV 转义（逗号、引号、换行）；
+  导出时加 UTF-8 BOM（Excel 中文不乱码）。
+- **UI**：书库工具栏「导出」菜单（全部批注 / 清单 CSV）。
+- **版本**：`pubspec.yaml` → `1.7.0+7`。
 
 ## 0.9 第七轮迭代验收（v1.6.0 质量加固，2026-11-01）
 

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -138,6 +139,18 @@ class _LibraryPageState extends State<LibraryPage> {
                 MaterialPageRoute(builder: (_) => StatsPage(container: _c)),
               ),
               icon: const Icon(Icons.insights_outlined),
+            ),
+            PopupMenuButton<String>(
+              tooltip: '导出',
+              icon: const Icon(Icons.file_download_outlined),
+              onSelected: (v) {
+                if (v == 'notes') _exportAllNotes();
+                if (v == 'csv') _exportLibraryCsv();
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(value: 'notes', child: Text('导出全部批注（Markdown）')),
+                PopupMenuItem(value: 'csv', child: Text('导出书库清单（CSV）')),
+              ],
             ),
             IconButton(
               tooltip: '设置（Ctrl+,）',
@@ -420,6 +433,60 @@ class _LibraryPageState extends State<LibraryPage> {
       );
     }
   }
+
+  /// 导出全书库批注合集（无批注文献自动跳过）。
+  Future<void> _exportAllNotes() async {
+    final docs = await _c.libraryRepo.getAllIncludingDeleted();
+    final active = docs.where((d) => d.deletedAt == null).toList();
+    final items = <DocNotes>[];
+    for (final d in active) {
+      items.add(DocNotes(d, await _c.annotationRepo.byDoc(d.id)));
+    }
+    if (items.every((e) => e.notes.where((n) => n.isActive).isEmpty)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('书库还没有任何批注')),
+        );
+      }
+      return;
+    }
+    final markdown = NotesExporter.exportAllMarkdown(items);
+    final saved = await FilePicker.saveFile(
+      fileName: '文阅批注合集-${_stamp()}.md',
+      bytes: Uint8List.fromList(utf8.encode(markdown)),
+    );
+    if (saved != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已导出到 $saved')),
+      );
+    }
+  }
+
+  /// 导出书库清单 CSV（UTF-8 BOM，Excel 直接打开中文不乱码）。
+  Future<void> _exportLibraryCsv() async {
+    final docs = await _c.libraryRepo.getAllIncludingDeleted();
+    final active = docs.where((d) => d.deletedAt == null).toList();
+    if (active.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('书库还是空的')),
+        );
+      }
+      return;
+    }
+    final csv = NotesExporter.exportLibraryCsv(active);
+    final saved = await FilePicker.saveFile(
+      fileName: '文阅书库清单-${_stamp()}.csv',
+      bytes: Uint8List.fromList(utf8.encode('\uFEFF$csv')),
+    );
+    if (saved != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已导出到 $saved')),
+      );
+    }
+  }
+
+  String _stamp() => DateTime.now().toIso8601String().substring(0, 10);
 
   Future<void> _removeDoc(LibraryDoc doc) async {
     final alsoDelete = await showDialog<bool>(

@@ -5,17 +5,18 @@
 > · 第五轮：2026-11-01（v1.4.0 书库视图与标签筛选）
 > · 第六轮：2026-11-01（v1.5.0 渲染增强：代码高亮 + 图片查看器）
 > · 第七轮：2026-11-01（v1.6.0 质量加固：TextDocView widget 测试）
+> · 第八轮：2026-11-01（v1.7.0 导出增强：批注合集 + 书库清单 CSV）
 > 本文档面向下一位开发者（或下一次会话），目标是 5 分钟内恢复全部上下文。
 
 ---
 
 ## 1. 一句话现状
 
-**代码全部完成且质量达标**（`dart analyze` 0 问题、`flutter test` 69/69 通过）。
-第七轮（v1.6.0）完成**质量加固**：新增 `TextDocView` 的 6 个 widget 级测试
-（标题/正文、代码块高亮富文本、表格、远程图片占位、引用与列表、空文档），
-并新增 `AppContainer.forTesting` 测试构造（内存 DB + 内存文件存储）。
-第六轮完成渲染增强（代码高亮 + 图片查看器）；第五轮书库视图/标签；第四轮阅读统计。
+**代码全部完成且质量达标**（`dart analyze` 0 问题、`flutter test` 73/73 通过）。
+第八轮（v1.7.0）完成**导出增强**：书库导出全部批注为 Markdown 合集
+（按文献分节、跳过无批注文献）、书库清单 CSV（UTF-8 BOM，Excel 友好），
+纯函数实现并有单测覆盖 CSV 转义。
+第七轮完成质量加固（TextDocView widget 测试 6 例）；第六轮渲染增强；第五轮书库视图/标签。
 Windows 构建从 `C:\wenyue` junction 进行（原路径中文导致 Release AOT 路径乱码）。
 
 ## 2. 状态一览表
@@ -24,7 +25,7 @@ Windows 构建从 `C:\wenyue` junction 进行（原路径中文导致 Release AO
 | --- | --- | --- |
 | 领域/数据/服务/阅读器/UI 五层代码 | ✅ 完成 | 分层架构，见 §4 |
 | `dart analyze` | ✅ 0 问题 | 注意：中文路径下只能用 `dart analyze`，`flutter analyze` 会崩 |
-| `flutter test` | ✅ 69/69 | 解析 ×7 + TXT 章节 ×4 + EPUB ×1 + 同步 ×6 + 导入 ×6 + 解码 ×7 + 快捷键 ×4 + 统计 ×9 + 书库筛选 ×7 + 设置 ×3 + 代码高亮 ×9 + 渲染 widget ×6 |
+| `flutter test` | ✅ 73/73 | 解析 ×7 + TXT 章节 ×4 + EPUB ×1 + 同步 ×6 + 导入 ×6 + 解码 ×7 + 快捷键 ×4 + 统计 ×9 + 书库筛选 ×7 + 设置 ×3 + 代码高亮 ×9 + 渲染 widget ×6 + 导出 ×4 |
 | 依赖锁定 | ✅ | `pubspec.lock`，决策记录见 `THIRD_PARTY_NOTICES.md` |
 | 一键书签 | ✅ 新增 | 工具栏图标，PDF 锚页码 / EPUB 锚章 / MD-TXT 锚偏移；再点取消 |
 | 大纲侧栏 | ✅ 新增 | 目录改左侧面板；MD/TXT 自动生成大纲 |
@@ -40,6 +41,7 @@ Windows 构建从 `C:\wenyue` junction 进行（原路径中文导致 Release AO
 | 代码高亮 | ✅ 新增（v1.5.0） | `code_highlighter.dart` 纯 Dart 词法着色；10+ 语言、别名归一（ts/js/py/kt/cpp 等）、未知语言通用扫描 |
 | 图片查看器 | ✅ 新增（v1.5.0） | 点击正文图片全屏打开，InteractiveViewer 缩放平移（8×），点背景或 ✕ 关闭 |
 | Widget 测试 | ✅ 新增（v1.6.0） | TextDocView 6 例（富文本/表格/占位/引用列表/空态）；`AppContainer.forTesting` 内存容器 |
+| 导出增强 | ✅ 新增（v1.7.0） | 全书库批注合集 Markdown（分节/跳过空）+ 书库清单 CSV（BOM/转义） |
 | Windows debug 构建 | ✅ | 需 VS Build Tools+ATL+开发者模式（已装好） |
 | Windows Release 构建 | ✅ 需 junction | 原路径 AOT 产物路径乱码（见 §5）；从 `C:\wenyue` 构建成功 |
 | Android debug APK | ✅ 构建成功 | 中文路径绕过见 §5 |
