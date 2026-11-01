@@ -1,13 +1,20 @@
+import 'dart:convert';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:convert';
 
 import '../../di/app_container.dart';
 import '../../services/stats/reading_report_exporter.dart';
 import '../../services/stats/reading_stats_service.dart';
+import '../theme.dart';
+import '../widgets/glass.dart';
 
 /// 阅读统计页：累计时长 / 今日 / 连续天数 / 近 7 日分布 / 常读文献。
+///
+/// 视觉（通透）：透明 Scaffold + [GlassAppBar] 顶栏 + [AmbientBackdrop] 页面底；
+/// 四张指标卡用 [GlassCard]（不用 M3 容器色、不用真实模糊，列表一律非模糊卡）；
+/// 近 7 天柱状用主色阶梯 + 发丝基线；常读文献用紧凑 [GlassCard] 行。
 class StatsPage extends StatefulWidget {
   const StatsPage({super.key, required this.container});
 
@@ -111,8 +118,11 @@ class _StatsPageState extends State<StatsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     return Scaffold(
-      appBar: AppBar(
+      backgroundColor: Colors.transparent,
+      extendBodyBehindAppBar: true,
+      appBar: GlassAppBar(
         title: const Text('阅读统计'),
         actions: [
           PopupMenuButton<String>(
@@ -132,93 +142,133 @@ class _StatsPageState extends State<StatsPage> {
             onPressed: _reset,
             icon: const Icon(Icons.delete_sweep_outlined),
           ),
+          const SizedBox(width: 8),
         ],
       ),
-      body: FutureBuilder<_StatsData>(
-        future: _future,
-        builder: (context, snap) {
-          if (snap.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snap.hasError) {
-            return Center(child: Text('统计读取失败：${snap.error}'));
-          }
-          final data = snap.data!;
-          final s = data.summary;
-          if (s.sessionsCount == 0) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.insights_outlined,
-                      size: 56, color: Theme.of(context).colorScheme.outline),
-                  const SizedBox(height: 10),
-                  const Text('还没有阅读记录'),
-                  const SizedBox(height: 4),
-                  Text(
-                    '打开任意文献读上几秒，统计就会出现在这里',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
+      body: AmbientBackdrop(
+        child: FutureBuilder<_StatsData>(
+          future: _future,
+          builder: (context, snap) {
+            if (snap.connectionState != ConnectionState.done) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snap.hasError) {
+              return Center(
+                child: Text(
+                  '统计读取失败：${snap.error}',
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(color: t.textSecondary),
+                ),
+              );
+            }
+            final data = snap.data!;
+            final s = data.summary;
+            if (s.sessionsCount == 0) {
+              return const SafeArea(
+                child: EmptyState(
+                  icon: Icons.insights_outlined,
+                  title: '还没有阅读记录',
+                  description: '打开任意文献读上几秒，统计就会出现在这里',
+                ),
+              );
+            }
+            return ListView(
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.page,
+                GlassAppBar.insetOf(context) + 8,
+                AppSpacing.page,
+                AppSpacing.contentBottom,
               ),
-            );
-          }
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  _StatCard(label: '累计阅读', value: _fmtDuration(s.totalSeconds)),
-                  _StatCard(label: '今日', value: _fmtDuration(s.todaySeconds)),
-                  _StatCard(label: '连续阅读', value: '${s.streakDays} 天'),
-                  _StatCard(label: '阅读天数', value: '${s.activeDays} 天'),
-                ],
-              ),
-              if (s.busiestDay != null && s.busiestDaySeconds > 0) ...[
-                const SizedBox(height: 12),
+              children: [
                 Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
+                  spacing: AppSpacing.cardGap,
+                  runSpacing: AppSpacing.cardGap,
                   children: [
                     _StatCard(
-                      label: '最活跃日',
-                      value:
-                          '${s.busiestDay!.month}/${s.busiestDay!.day} · ${_fmtDuration(s.busiestDaySeconds)}',
+                      icon: Icons.schedule_outlined,
+                      label: '累计阅读',
+                      value: _fmtDuration(s.totalSeconds),
                     ),
                     _StatCard(
-                      label: '周环比',
-                      value: s.weekRatio == null
-                          ? '—'
-                          : '${s.weekRatio! >= 1 ? '↑' : '↓'}'
-                              ' ${((s.weekRatio! - 1).abs() * 100).toStringAsFixed(0)}%',
+                      icon: Icons.today_outlined,
+                      label: '今日',
+                      value: _fmtDuration(s.todaySeconds),
+                    ),
+                    _StatCard(
+                      icon: Icons.local_fire_department_outlined,
+                      label: '连续阅读',
+                      value: '${s.streakDays} 天',
+                    ),
+                    _StatCard(
+                      icon: Icons.calendar_month_outlined,
+                      label: '阅读天数',
+                      value: '${s.activeDays} 天',
                     ),
                   ],
                 ),
-              ],
-              const SizedBox(height: 24),
-              Text('近 7 天', style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 10),
-              _WeeklyBars(window: s.window),
-              const SizedBox(height: 24),
-              Text('常读文献', style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 6),
-              for (final entry in s.topDocs)
-                ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.menu_book_outlined),
-                  title: Text(
-                    data.titles[entry.key] ?? '（已移除的文献）',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                if (s.busiestDay != null && s.busiestDaySeconds > 0) ...[
+                  const SizedBox(height: AppSpacing.cardGap),
+                  Wrap(
+                    spacing: AppSpacing.cardGap,
+                    runSpacing: AppSpacing.cardGap,
+                    children: [
+                      _StatCard(
+                        icon: Icons.bolt_outlined,
+                        label: '最活跃日',
+                        value:
+                            '${s.busiestDay!.month}/${s.busiestDay!.day} · ${_fmtDuration(s.busiestDaySeconds)}',
+                      ),
+                      _StatCard(
+                        icon: s.weekRatio == null || s.weekRatio! >= 1
+                            ? Icons.trending_up
+                            : Icons.trending_down,
+                        label: '周环比',
+                        value: s.weekRatio == null
+                            ? '—'
+                            : '${s.weekRatio! >= 1 ? '↑' : '↓'}'
+                                ' ${((s.weekRatio! - 1).abs() * 100).toStringAsFixed(0)}%',
+                      ),
+                    ],
                   ),
-                  trailing: Text(_fmtDuration(entry.value)),
+                ],
+                const SectionHeader(
+                  '近 7 天',
+                  padding: EdgeInsets.only(
+                    top: AppSpacing.sectionGap,
+                    bottom: 8,
+                  ),
                 ),
-            ],
-          );
-        },
+                _StatGlassCard(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.cardInner,
+                    AppSpacing.cardInner,
+                    AppSpacing.cardInner,
+                    12,
+                  ),
+                  child: _WeeklyBars(window: s.window),
+                ),
+                const SectionHeader(
+                  '常读文献',
+                  padding: EdgeInsets.only(
+                    top: AppSpacing.sectionGap,
+                    bottom: 8,
+                  ),
+                ),
+                for (var i = 0; i < s.topDocs.length; i++)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _TopDocRow(
+                      rank: i + 1,
+                      title: data.titles[s.topDocs[i].key] ?? '（已移除的文献）',
+                      duration: _fmtDuration(s.topDocs[i].value),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -231,34 +281,85 @@ class _StatsData {
   final Map<String, String> titles;
 }
 
-class _StatCard extends StatelessWidget {
-  const _StatCard({required this.label, required this.value});
+/// 统计页的玻璃卡统一入口（统一内边距与可选定宽）。
+class _StatGlassCard extends StatelessWidget {
+  const _StatGlassCard({
+    required this.child,
+    this.padding = const EdgeInsets.all(AppSpacing.cardInner),
+    this.width,
+  });
 
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  final double? width;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(width: width, padding: padding, child: child);
+  }
+}
+
+/// 指标卡：不透明玻璃卡 + 极淡主色图标底 + 大数字（等宽数字）。
+class _StatCard extends StatelessWidget {
+  const _StatCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
   final String label;
   final String value;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      width: 150,
+    final t = context.tokens;
+    final text = Theme.of(context).textTheme;
+    return _StatGlassCard(
+      width: 158,
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(12),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: theme.textTheme.labelMedium),
-          const SizedBox(height: 6),
-          Text(value, style: theme.textTheme.titleLarge),
+          Row(
+            children: [
+              Container(
+                width: 26,
+                height: 26,
+                decoration: BoxDecoration(
+                  color: t.accentSoft,
+                  borderRadius: BorderRadius.circular(AppRadius.micro),
+                ),
+                child: Icon(icon, size: 15, color: t.accent),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: text.labelMedium?.copyWith(color: t.textSecondary),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: text.headlineSmall?.copyWith(
+              color: t.textPrimary,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
+/// 近 7 天柱状图：主色阶梯 + 发丝基线 + 星期标签。
 class _WeeklyBars extends StatelessWidget {
   const _WeeklyBars({required this.window});
 
@@ -266,13 +367,16 @@ class _WeeklyBars extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final t = context.tokens;
+    final text = Theme.of(context).textTheme;
     final entries = window.entries.toList();
     final maxSeconds =
         entries.fold<int>(0, (m, e) => e.value > m ? e.value : m);
     const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
     return SizedBox(
-      height: 140,
+      height: 152,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
@@ -285,26 +389,82 @@ class _WeeklyBars extends StatelessWidget {
                     e.value == 0 ? '' : _fmtDuration(e.value),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelSmall,
+                    style: text.labelSmall?.copyWith(color: t.textTertiary),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Container(
-                    height: maxSeconds == 0 ? 4 : 4 + 90 * e.value / maxSeconds,
-                    margin: const EdgeInsets.symmetric(horizontal: 10),
+                    height: maxSeconds == 0 ? 4 : 4 + 84 * e.value / maxSeconds,
+                    margin: const EdgeInsets.symmetric(horizontal: 8),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primary
-                          .withValues(alpha: e.value == 0 ? 0.15 : 0.75),
-                      borderRadius: BorderRadius.circular(6),
+                      color: e.value == 0
+                          ? t.fill
+                          : (e.key == today
+                              ? t.accent
+                              : t.accent.withValues(alpha: 0.55)),
+                      borderRadius: BorderRadius.circular(AppRadius.micro),
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  // 发丝基线
+                  Container(height: AppSpacing.hairline, color: t.separator),
                   const SizedBox(height: 6),
                   Text(
                     weekdays[(e.key.weekday - 1).clamp(0, 6)],
-                    style: theme.textTheme.labelSmall,
+                    style: text.labelSmall?.copyWith(
+                      color: e.key == today ? t.accent : t.textTertiary,
+                      fontWeight:
+                          e.key == today ? FontWeight.w600 : FontWeight.w500,
+                    ),
                   ),
                 ],
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 常读文献行：紧凑玻璃卡 + 排名胶囊 + 时长。
+class _TopDocRow extends StatelessWidget {
+  const _TopDocRow({
+    required this.rank,
+    required this.title,
+    required this.duration,
+  });
+
+  final int rank;
+  final String title;
+  final String duration;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final text = Theme.of(context).textTheme;
+    return _StatGlassCard(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(
+        children: [
+          GlassPill(
+            label: '$rank',
+            color: t.accent,
+            background: t.accentSoft,
+            dense: true,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: text.bodyMedium?.copyWith(color: t.textPrimary),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            duration,
+            style: text.labelSmall?.copyWith(color: t.textSecondary),
+          ),
         ],
       ),
     );

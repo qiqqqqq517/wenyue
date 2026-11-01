@@ -19,6 +19,8 @@ import '../../readers/text/txt_reader.dart';
 import '../settings/settings_view_model.dart';
 import '../shortcuts.dart';
 import '../shortcuts_help.dart';
+import '../theme.dart';
+import '../widgets/glass.dart';
 
 /// 阅读器外壳：目录 / 搜索 / 批注 / 排版设置 / 进度保存。
 class ReaderPage extends StatefulWidget {
@@ -480,36 +482,39 @@ class _ReaderPageState extends State<ReaderPage> {
         : (n.note.isEmpty ? '（无内容）' : clampQuote(n.note, maxQuoteLength: 60));
     return showDialog<bool>(
       context: ctx,
-      builder: (ctx) => AlertDialog(
-        title: Text('删除$kindLabel？'),
-        content: Text(preview, maxLines: 3, overflow: TextOverflow.ellipsis),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(ctx).colorScheme.error,
+      builder: (ctx) {
+        final t = ctx.tokens;
+        return AlertDialog(
+          title: Text('删除$kindLabel？'),
+          content: Text(preview, maxLines: 3, overflow: TextOverflow.ellipsis),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消'),
             ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: t.danger),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('删除'),
+            ),
+          ],
+        );
+      },
     );
   }
 
   Future<String?> _editNoteDialog(BuildContext ctx, String initial) {
     final controller = TextEditingController(text: initial);
     return showDialog<String>(
-      context: ctx,      builder: (ctx) => AlertDialog(
+      context: ctx,
+      builder: (ctx) => AlertDialog(
         title: const Text('编辑笔记'),
         content: TextField(
           controller: controller,
           autofocus: true,
           maxLines: 6,
-          decoration: const InputDecoration(border: OutlineInputBorder()),
+          // 边框/填充走主题 InputDecorationTheme，不在这里手写。
+          decoration: const InputDecoration(hintText: '写点什么…'),
         ),
         actions: [
           TextButton(
@@ -528,55 +533,77 @@ class _ReaderPageState extends State<ReaderPage> {
   Future<void> _showReaderSettings() async {
     final vm = SettingsViewModel.instance(_c);
     if (!mounted) return;
+    // 弹层外观（圆角 22 + 拖动条）已由 AppTheme.bottomSheetTheme 统一配置。
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
       builder: (ctx) => SafeArea(
         child: ListenableBuilder(
           listenable: vm,
-          builder: (context, _) => Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('字号 ${vm.snapshot.readerFontSize.round()}',
-                    style: Theme.of(ctx).textTheme.labelLarge),
-                Slider(
-                  min: 12,
-                  max: 28,
-                  divisions: 16,
-                  value: vm.snapshot.readerFontSize,
-                  onChanged: vm.setReaderFontSize,
-                ),
-                Text('行距 ${vm.snapshot.readerLineHeight.toStringAsFixed(2)}',
-                    style: Theme.of(ctx).textTheme.labelLarge),
-                Slider(
-                  min: 1.2,
-                  max: 2.4,
-                  divisions: 12,
-                  value: vm.snapshot.readerLineHeight,
-                  onChanged: vm.setReaderLineHeight,
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    const Text('主题'),
-                    const Spacer(),
-                    SegmentedButton<String>(
-                      segments: const [
-                        ButtonSegment(value: 'system', label: Text('系统')),
-                        ButtonSegment(value: 'light', label: Text('浅色')),
-                        ButtonSegment(value: 'dark', label: Text('深色')),
+          builder: (context, _) {
+            final t = context.tokens;
+            final text = Theme.of(context).textTheme;
+            final label = text.labelLarge?.copyWith(color: t.textPrimary);
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.page,
+                0,
+                AppSpacing.page,
+                AppSpacing.page,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '字号 ${vm.snapshot.readerFontSize.round()}',
+                    style: label,
+                  ),
+                  Slider(
+                    min: 12,
+                    max: 28,
+                    divisions: 16,
+                    value: vm.snapshot.readerFontSize,
+                    onChanged: vm.setReaderFontSize,
+                  ),
+                  Text(
+                    '行距 ${vm.snapshot.readerLineHeight.toStringAsFixed(2)}',
+                    style: label,
+                  ),
+                  Slider(
+                    min: 1.2,
+                    max: 2.4,
+                    divisions: 12,
+                    value: vm.snapshot.readerLineHeight,
+                    onChanged: vm.setReaderLineHeight,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: AppSpacing.cardInner),
+                    child: Row(
+                      children: [
+                        Text(
+                          '主题',
+                          style: text.bodyMedium?.copyWith(
+                            color: t.textSecondary,
+                          ),
+                        ),
+                        const Spacer(),
+                        SegmentedButton<String>(
+                          segments: const [
+                            ButtonSegment(value: 'system', label: Text('系统')),
+                            ButtonSegment(value: 'light', label: Text('浅色')),
+                            ButtonSegment(value: 'dark', label: Text('深色')),
+                          ],
+                          selected: {vm.snapshot.themeMode},
+                          onSelectionChanged: (s) => vm.setThemeMode(s.first),
+                        ),
                       ],
-                      selected: {vm.snapshot.themeMode},
-                      onSelectionChanged: (s) => vm.setThemeMode(s.first),
                     ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+                  ),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );
@@ -613,6 +640,8 @@ class _ReaderPageState extends State<ReaderPage> {
     if (doc == null || _filePath.isEmpty) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+    final t = context.tokens;
+    final text = Theme.of(context).textTheme;
     final isPdf = doc.format == DocFormat.pdf;
     final isEpub = doc.format == DocFormat.epub;
     final bookmarked = _currentBookmark() != null;
@@ -641,87 +670,111 @@ class _ReaderPageState extends State<ReaderPage> {
           },
       },
       child: Scaffold(
-        appBar: AppBar(
-        title: Text(
-          doc.title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.titleMedium,
+        backgroundColor: Colors.transparent,
+        extendBodyBehindAppBar: true,
+        appBar: GlassAppBar(
+          title: Text(
+            doc.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: text.titleMedium?.copyWith(color: t.textPrimary),
+          ),
+          actions: [
+            _ReaderBarAction(
+              tooltip: bookmarked ? '取消本书签' : '添加书签',
+              onPressed: _toggleBookmark,
+              active: bookmarked,
+              icon: Icon(
+                bookmarked ? Icons.bookmark : Icons.bookmark_border,
+              ),
+            ),
+            _ReaderBarAction(
+              tooltip: '目录',
+              onPressed: _showToc,
+              active: _tocOpen,
+              icon: const Icon(Icons.toc),
+            ),
+            _ReaderBarAction(
+              tooltip: '文内搜索',
+              onPressed: _openSearch,
+              active: _searchOpen,
+              icon: const Icon(Icons.search),
+            ),
+            _ReaderBarAction(
+              tooltip: '批注列表',
+              onPressed: _showAnnotations,
+              icon: Badge(
+                isLabelVisible: _annotations.isNotEmpty,
+                backgroundColor: t.accent,
+                textColor: Colors.white,
+                label: Text('${_annotations.length}'),
+                child: const Icon(Icons.notes_outlined),
+              ),
+            ),
+            _ReaderBarAction(
+              tooltip: '阅读设置',
+              onPressed: _showReaderSettings,
+              icon: const Icon(Icons.text_fields),
+            ),
+            const SizedBox(width: AppSpacing.cardInner),
+          ],
         ),
-        actions: [
-          IconButton(
-            tooltip: bookmarked ? '取消本书签' : '添加书签',
-            onPressed: _toggleBookmark,
-            icon: Icon(
-              bookmarked ? Icons.bookmark : Icons.bookmark_border,
-              color: bookmarked ? Theme.of(context).colorScheme.primary : null,
-            ),
-          ),
-          IconButton(
-            tooltip: '目录',
-            onPressed: _showToc,
-            icon: const Icon(Icons.toc),
-          ),
-          IconButton(
-            tooltip: '文内搜索',
-            onPressed: _openSearch,
-            icon: const Icon(Icons.search),
-          ),
-          IconButton(
-            tooltip: '批注列表',
-            onPressed: _showAnnotations,
-            icon: Badge(
-              isLabelVisible: _annotations.isNotEmpty,
-              label: Text('${_annotations.length}'),
-              child: const Icon(Icons.notes_outlined),
-            ),
-          ),
-          IconButton(
-            tooltip: '阅读设置',
-            onPressed: _showReaderSettings,
-            icon: const Icon(Icons.text_fields),
-          ),
-        ],
-      ),
-      body: Row(
-        children: [
-          // 左侧大纲栏（宽屏常驻，可收起）
-          if (_tocOpen)
-            _TocPanel(
-              items: _tocCache,
-              width: _tocPanelWidth,
-              activeIndex: _activeTocIndex(),
-              onJump: (item) {
-                setState(() => _tocOpen = false);
-                _handle?.jumpTo(item);
-              },
-              onClose: () => setState(() => _tocOpen = false),
-            ),
-          Expanded(
-            child: Column(
+        // 顶栏为透明玻璃并延伸至页面顶部（Scaffold 已移除 body 的顶部安全区），
+        // 正文需自行让出顶栏高度。高度统一由 GlassAppBar.insetOf 计算
+        // （= 状态栏内边距 + 56），不再硬编码 56 —— 否则 Android 上会少让一截。
+        body: AmbientBackdrop(
+          child: Padding(
+            padding: EdgeInsets.only(top: GlassAppBar.insetOf(context)),
+            child: Row(
               children: [
-                if (_searchOpen)
-                  _SearchPanel(
-                    controller: _searchController,
-                    hits: _searchHits,
-                    currentIndex: _searchIndex,
-                    searching: _searching,
-                    query: _searchQuery,
-                    history: _searchHistory,
-                    onSubmit: _runSearch,
-                    onPrev: () => _gotoHit((_searchIndex - 1).clamp(0, _searchHits.length - 1)),
-                    onNext: () => _gotoHit((_searchIndex + 1).clamp(0, _searchHits.length - 1)),
-                    onJumpAt: _gotoHit,
-                    onClose: _closeSearch,
+                // 左侧大纲栏（宽屏常驻，可收起）
+                if (_tocOpen)
+                  _TocPanel(
+                    items: _tocCache,
+                    width: _tocPanelWidth,
+                    activeIndex: _activeTocIndex(),
+                    onJump: (item) {
+                      setState(() => _tocOpen = false);
+                      _handle?.jumpTo(item);
+                    },
+                    onClose: () => setState(() => _tocOpen = false),
                   ),
-                Expanded(child: _buildReader(doc)),
-                if (isEpub) _epubNavBar(),
-                if (isPdf) _pdfNavBar(),
+                Expanded(
+                  child: Column(
+                    children: [
+                      if (_searchOpen)
+                        _SearchPanel(
+                          controller: _searchController,
+                          hits: _searchHits,
+                          currentIndex: _searchIndex,
+                          searching: _searching,
+                          query: _searchQuery,
+                          history: _searchHistory,
+                          onSubmit: _runSearch,
+                          onPrev: () => _gotoHit(
+                              (_searchIndex - 1).clamp(0, _searchHits.length - 1)),
+                          onNext: () => _gotoHit(
+                              (_searchIndex + 1).clamp(0, _searchHits.length - 1)),
+                          onJumpAt: _gotoHit,
+                          onClose: _closeSearch,
+                        ),
+                      // 正文区必须是纯净纸张/页面底：不透出环境光斑，
+                      // 保证正文对比度（AmbientBackdrop 只作用于外壳与工具栏）。
+                      Expanded(
+                        child: ColoredBox(
+                          color: t.pageBackground,
+                          child: _buildReader(doc),
+                        ),
+                      ),
+                      if (isEpub) _epubNavBar(),
+                      if (isPdf) _pdfNavBar(),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
-        ],
-      ),
+        ),
       ),
     );
   }
@@ -831,81 +884,179 @@ class _ReaderPageState extends State<ReaderPage> {
   }
 
   Widget _epubNavBar() {
+    final t = context.tokens;
+    final text = Theme.of(context).textTheme;
     final key = _epubKey.currentState;
     final chapterCount = key?.chapterCount ?? 0;
     final current = key?.currentChapter ?? 0;
     return SafeArea(
       top: false,
-      child: Row(
-        children: [
-          TextButton(
-            onPressed: current > 0 ? () => key?.goToChapter(current - 1) : null,
-            child: const Text('上一章'),
-          ),
-          Expanded(
-            child: Center(
-              child: Text(
-                chapterCount > 0 ? '第 ${current + 1}/$chapterCount 章' : '',
-                style: Theme.of(context).textTheme.labelSmall,
+      child: GlassBar(
+        blur: 20,
+        height: 52,
+        borderRadius: AppRadius.card,
+        showTopRim: true,
+        showBottomRim: false,
+        showShadow: true,
+        margin: const EdgeInsets.fromLTRB(
+          AppSpacing.page,
+          0,
+          AppSpacing.page,
+          AppSpacing.cardGap,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Row(
+          children: [
+            _ReaderBarAction(
+              tooltip: '上一章',
+              onPressed:
+                  current > 0 ? () => key?.goToChapter(current - 1) : null,
+              icon: const Icon(Icons.chevron_left),
+            ),
+            Expanded(
+              child: Center(
+                child: Text(
+                  chapterCount > 0 ? '第 ${current + 1}/$chapterCount 章' : '',
+                  style: text.labelSmall?.copyWith(color: t.textTertiary),
+                ),
               ),
             ),
-          ),
-          TextButton(
-            onPressed: current + 1 < chapterCount
-                ? () => key?.goToChapter(current + 1)
-                : null,
-            child: const Text('下一章'),
-          ),
-        ],
+            _ReaderBarAction(
+              tooltip: '下一章',
+              onPressed: current + 1 < chapterCount
+                  ? () => key?.goToChapter(current + 1)
+                  : null,
+              icon: const Icon(Icons.chevron_right),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _pdfNavBar() {
+    final t = context.tokens;
+    final text = Theme.of(context).textTheme;
     final pdf = _pdfKey.currentState;
     final pageCount = pdf?.pageCount ?? 0;
     return SafeArea(
       top: false,
-      child: Row(
-        children: [
-          IconButton(
-            tooltip: '缩小',
-            onPressed: () => pdf?.zoomOut(),
-            icon: const Icon(Icons.zoom_out),
-          ),
-          Expanded(
-            child: Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('第'),
-                  SizedBox(
-                    width: 64,
-                    child: TextField(
-                      controller: _pageController,
-                      focusNode: _pageFocus,
-                      textAlign: TextAlign.center,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        border: OutlineInputBorder(),
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      ),
-                      onSubmitted: _onPageSubmitted,
+      child: GlassBar(
+        blur: 20,
+        height: 52,
+        borderRadius: AppRadius.card,
+        showTopRim: true,
+        showBottomRim: false,
+        showShadow: true,
+        margin: const EdgeInsets.fromLTRB(
+          AppSpacing.page,
+          0,
+          AppSpacing.page,
+          AppSpacing.cardGap,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Row(
+          children: [
+            _ReaderBarAction(
+              tooltip: '缩小',
+              onPressed: () => pdf?.zoomOut(),
+              icon: const Icon(Icons.zoom_out),
+            ),
+            Expanded(
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '第',
+                      style: text.labelSmall?.copyWith(color: t.textTertiary),
                     ),
-                  ),
-                  Text(pageCount > 0 ? ' / $pageCount 页' : ' / ? 页'),
-                ],
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 64,
+                      child: TextField(
+                        controller: _pageController,
+                        focusNode: _pageFocus,
+                        textAlign: TextAlign.center,
+                        keyboardType: TextInputType.number,
+                        style: text.labelMedium?.copyWith(color: t.textPrimary),
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 8,
+                          ),
+                        ),
+                        onSubmitted: _onPageSubmitted,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      pageCount > 0 ? '/ $pageCount 页' : '/ ? 页',
+                      style: text.labelSmall?.copyWith(color: t.textTertiary),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            _ReaderBarAction(
+              tooltip: '放大',
+              onPressed: () => pdf?.zoomIn(),
+              icon: const Icon(Icons.zoom_in),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 顶栏 / 底部导航条上的图标按钮：36pt 圆形热区，选中态主色淡底。
+class _ReaderBarAction extends StatelessWidget {
+  const _ReaderBarAction({
+    required this.tooltip,
+    required this.icon,
+    this.onPressed,
+    this.active = false,
+  });
+
+  final String tooltip;
+  final Widget icon;
+  final VoidCallback? onPressed;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final enabled = onPressed != null;
+    final Color fg;
+    if (!enabled) {
+      fg = t.textTertiary;
+    } else if (active) {
+      fg = t.accent;
+    } else {
+      fg = t.textSecondary;
+    }
+    return Tooltip(
+      message: tooltip,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: Material(
+          color: active && enabled ? t.accentSoft : Colors.transparent,
+          shape: const CircleBorder(),
+          child: InkWell(
+            onTap: onPressed,
+            customBorder: const CircleBorder(),
+            child: SizedBox(
+              width: 36,
+              height: 36,
+              child: IconTheme(
+                data: IconThemeData(size: 20, color: fg),
+                child: Center(child: icon),
               ),
             ),
           ),
-          IconButton(
-            tooltip: '放大',
-            onPressed: () => pdf?.zoomIn(),
-            icon: const Icon(Icons.zoom_in),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -932,67 +1083,102 @@ class _TocPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      color: theme.colorScheme.surfaceContainerLowest,
-      child: SizedBox(
-        width: width,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 8, 4, 4),
-              child: Row(
-                children: [
-                  const SizedBox(width: 8),
-                  Text('大纲', style: theme.textTheme.titleSmall),
-                  const Spacer(),
-                  IconButton(
-                    tooltip: '收起',
-                    onPressed: onClose,
-                    icon: const Icon(Icons.close, size: 18),
-                  ),
-                ],
-              ),
+    final t = context.tokens;
+    final text = Theme.of(context).textTheme;
+    return Container(
+      width: width,
+      decoration: BoxDecoration(
+        color: t.card,
+        border: Border(
+          right: BorderSide(color: t.separator, width: AppSpacing.hairline),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.cardInner,
+              8,
+              8,
+              8,
             ),
-            const Divider(height: 1),
-            Expanded(
-              child: ListView.builder(
-                itemCount: items.length,
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                itemBuilder: (context, i) {
-                  final item = items[i];
-                  final isActive = i == activeIndex;
-                  return ListTile(
-                    contentPadding: EdgeInsets.only(
-                        left: 12.0 + (item.level - 1) * 16, right: 8),
-                    dense: item.level > 1,
-                    visualDensity: VisualDensity.compact,
-                    selected: isActive,
-                    title: Text(
-                      item.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontWeight:
-                            item.level <= 1 || isActive ? FontWeight.w600 : null,
-                        fontSize: item.level <= 1 ? 14 : 13,
-                        color: isActive
-                            ? theme.colorScheme.primary
-                            : theme.colorScheme.onSurface,
+            child: Row(
+              children: [
+                Text(
+                  '大纲',
+                  style: text.titleSmall?.copyWith(color: t.textPrimary),
+                ),
+                const Spacer(),
+                _ReaderBarAction(
+                  tooltip: '收起',
+                  onPressed: onClose,
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+          ),
+          Divider(color: t.separator, height: AppSpacing.hairline),
+          Expanded(
+            child: ListView.builder(
+              itemCount: items.length,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemBuilder: (context, i) {
+                final item = items[i];
+                final isActive = i == activeIndex;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  child: Material(
+                    color: isActive ? t.accentSoft : Colors.transparent,
+                    borderRadius: AppRadius.controlRadius,
+                    child: InkWell(
+                      borderRadius: AppRadius.controlRadius,
+                      onTap: () => onJump(item),
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                          left: 8.0 + (item.level - 1) * AppSpacing.cardGap,
+                          right: 8,
+                          top: 8,
+                          bottom: 8,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                item.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: text.bodyMedium?.copyWith(
+                                  color: isActive
+                                      ? t.accent
+                                      : (item.level <= 1
+                                          ? t.textPrimary
+                                          : t.textSecondary),
+                                  fontWeight: item.level <= 1 || isActive
+                                      ? FontWeight.w600
+                                      : FontWeight.w400,
+                                ),
+                              ),
+                            ),
+                            if (isActive)
+                              Icon(
+                                Icons.chevron_right,
+                                size: 16,
+                                color: t.accent,
+                              ),
+                          ],
+                        ),
                       ),
                     ),
-                    trailing: isActive
-                        ? Icon(Icons.chevron_right,
-                            size: 18, color: theme.colorScheme.primary)
-                        : null,
-                    onTap: () => onJump(item),
-                  );
-                },
-              ),
+                  ),
+                );
+              },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1029,12 +1215,19 @@ class _SearchPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      elevation: 2,
-      color: theme.colorScheme.surfaceContainerLow,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+    final t = context.tokens;
+    final text = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.page,
+        AppSpacing.cardGap,
+        AppSpacing.page,
+        AppSpacing.cardGap,
+      ),
+      child: GlassPanel(
+        borderRadius: AppRadius.card,
+        padding: const EdgeInsets.all(AppSpacing.cardInner),
+        elevation: 16,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1043,17 +1236,25 @@ class _SearchPanel extends StatelessWidget {
                 Expanded(
                   child: TextField(
                     controller: controller,
+                    style: text.bodyMedium?.copyWith(color: t.textPrimary),
                     decoration: InputDecoration(
-                      isDense: true,
                       hintText: '在本文内搜索…',
-                      prefixIcon: const Icon(Icons.search, size: 20),
+                      prefixIcon: Icon(
+                        Icons.search,
+                        size: 18,
+                        color: t.textTertiary,
+                      ),
                       suffixIcon: query.isEmpty
                           ? null
                           : IconButton(
-                              icon: const Icon(Icons.clear, size: 18),
+                              tooltip: '清空',
+                              icon: Icon(
+                                Icons.clear,
+                                size: 16,
+                                color: t.textTertiary,
+                              ),
                               onPressed: () => controller.clear(),
                             ),
-                      border: const OutlineInputBorder(),
                     ),
                     onSubmitted: onSubmit,
                   ),
@@ -1061,38 +1262,48 @@ class _SearchPanel extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(
                   hits.isEmpty ? '0/0' : '${currentIndex + 1}/${hits.length}',
-                  style: theme.textTheme.labelLarge,
+                  style: text.labelMedium?.copyWith(color: t.textSecondary),
                 ),
-                IconButton(
+                _ReaderBarAction(
                   tooltip: '上一个',
                   onPressed: hits.isEmpty ? null : onPrev,
                   icon: const Icon(Icons.keyboard_arrow_up),
                 ),
-                IconButton(
+                _ReaderBarAction(
                   tooltip: '下一个',
                   onPressed: hits.isEmpty ? null : onNext,
                   icon: const Icon(Icons.keyboard_arrow_down),
                 ),
-                IconButton(
+                _ReaderBarAction(
                   tooltip: '关闭搜索',
                   onPressed: onClose,
-                  icon: const Icon(Icons.close, size: 20),
+                  icon: const Icon(Icons.close),
                 ),
               ],
             ),
-            if (searching) const LinearProgressIndicator(minHeight: 2),
-            if (history.isNotEmpty && query.isEmpty && hits.isEmpty)
+            if (searching) ...[
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(AppRadius.micro),
+                child: LinearProgressIndicator(
+                  minHeight: 4,
+                  color: t.accent,
+                  backgroundColor: t.fill,
+                ),
+              ),
+            ],
+            if (history.isNotEmpty && query.isEmpty && hits.isEmpty) ...[
+              const SizedBox(height: 8),
               Align(
                 alignment: Alignment.centerLeft,
                 child: Wrap(
-                  spacing: 6,
-                  runSpacing: -6,
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
                     for (final h in history)
-                      ActionChip(
-                        label: Text(h, style: theme.textTheme.labelSmall),
-                        tooltip: '搜索「$h」',
-                        onPressed: () {
+                      _SearchHistoryChip(
+                        label: h,
+                        onTap: () {
                           controller.text = h;
                           onSubmit(h);
                         },
@@ -1100,28 +1311,78 @@ class _SearchPanel extends StatelessWidget {
                   ],
                 ),
               ),
-            if (hits.isNotEmpty)
+            ],
+            if (hits.isNotEmpty) ...[
+              const SizedBox(height: 8),
               ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 180),
                 child: ListView.builder(
                   shrinkWrap: true,
-                  padding: const EdgeInsets.only(top: 4),
+                  padding: EdgeInsets.zero,
                   itemCount: hits.length,
-                  itemBuilder: (context, i) => ListTile(
-                    dense: true,
-                    visualDensity: VisualDensity.compact,
-                    selected: i == currentIndex,
-                    title: Text(
-                      hits[i].excerpt,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall,
-                    ),
-                    onTap: () => onJumpAt(i),
-                  ),
+                  itemBuilder: (context, i) {
+                    final selected = i == currentIndex;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Material(
+                        color: selected ? t.accentSoft : Colors.transparent,
+                        borderRadius: AppRadius.controlRadius,
+                        child: InkWell(
+                          borderRadius: AppRadius.controlRadius,
+                          onTap: () => onJumpAt(i),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 8,
+                            ),
+                            child: Text(
+                              hits[i].excerpt,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: text.bodySmall?.copyWith(
+                                color: selected
+                                    ? t.accent
+                                    : t.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
+            ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 搜索历史 chip：淡填充胶囊，点按即复跑该查询。
+class _SearchHistoryChip extends StatelessWidget {
+  const _SearchHistoryChip({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final text = Theme.of(context).textTheme;
+    return Material(
+      color: t.fill,
+      borderRadius: BorderRadius.circular(AppRadius.chip),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.chip),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Text(
+            label,
+            style: text.labelSmall?.copyWith(color: t.textSecondary),
+          ),
         ),
       ),
     );
@@ -1145,7 +1406,8 @@ class _AnnotationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final t = context.tokens;
+    final text = Theme.of(context).textTheme;
     final position = _positionLabel();
     return ListTile(
       onTap: onJump,
@@ -1155,6 +1417,7 @@ class _AnnotationTile extends StatelessWidget {
           AnnotationKind.note => Icons.edit_note,
           AnnotationKind.bookmark => Icons.bookmark_outline,
         },
+        // 批注色是语义色（高亮色板），保留原样。
         color: highlightSwatch(annotation.color),
       ),
       title: annotation.kind == AnnotationKind.note
@@ -1162,19 +1425,20 @@ class _AnnotationTile extends StatelessWidget {
               annotation.note,
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
+              style: text.bodyMedium?.copyWith(color: t.textPrimary),
             )
           : Text(
               annotation.quote,
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodyMedium,
+              style: text.bodyMedium?.copyWith(color: t.textPrimary),
             ),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             '${annotation.kind.label}$position · ${Fmt.date(annotation.createdAt)}',
-            style: theme.textTheme.labelSmall,
+            style: text.labelSmall?.copyWith(color: t.textTertiary),
           ),
           if (annotation.kind == AnnotationKind.note &&
               annotation.quote.isNotEmpty)
@@ -1182,12 +1446,13 @@ class _AnnotationTile extends StatelessWidget {
               '原文：${annotation.quote}',
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.outline),
+              style: text.bodySmall?.copyWith(color: t.textSecondary),
             ),
         ],
       ),
       trailing: PopupMenuButton<String>(
+        tooltip: '更多',
+        icon: Icon(Icons.more_vert, size: 18, color: t.textTertiary),
         itemBuilder: (ctx) => const [
           PopupMenuItem(value: 'edit', child: Text('编辑笔记')),
           PopupMenuItem(value: 'delete', child: Text('删除')),

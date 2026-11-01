@@ -15,6 +15,8 @@ import '../settings/settings_page.dart';
 import '../shortcuts.dart';
 import '../shortcuts_help.dart';
 import '../stats/stats_page.dart';
+import '../theme.dart';
+import '../widgets/glass.dart';
 import 'library_filter.dart';
 
 /// 书库主页：网格展示、导入、搜索、排序、编辑与移除。
@@ -259,6 +261,7 @@ class _LibraryPageState extends State<LibraryPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     return AppShortcutLayer(
       bindings: {
         AppShortcuts.importFiles: () {
@@ -272,10 +275,9 @@ class _LibraryPageState extends State<LibraryPage> {
         AppShortcuts.help: () => showShortcutsHelp(context),
       },
       child: Scaffold(
-        appBar: AppBar(
-          title: Text(_multiSelectMode
-              ? '已选 ${_multiSelected.length} 篇'
-              : '文阅'),
+        backgroundColor: Colors.transparent,
+        extendBodyBehindAppBar: true,
+        appBar: GlassAppBar(
           leading: _multiSelectMode
               ? IconButton(
                   tooltip: '退出多选',
@@ -283,31 +285,66 @@ class _LibraryPageState extends State<LibraryPage> {
                   icon: const Icon(Icons.close),
                 )
               : null,
+          title: _multiSelectMode
+              ? Text(
+                  '已选 ${_multiSelected.length} 篇',
+                  style: Theme.of(context).textTheme.titleLarge,
+                )
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 26,
+                      height: 26,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            t.accent,
+                            Theme.of(context).colorScheme.secondary,
+                          ],
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.auto_stories,
+                        size: 15,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      '文阅',
+                      style: Theme.of(context)
+                          .textTheme
+                          .headlineSmall
+                          ?.copyWith(letterSpacing: -0.5),
+                    ),
+                  ],
+                ),
           actions: [
-            IconButton(
+            _AppBarAction(
               tooltip: '导入文献（Ctrl+O）',
               onPressed: _importing ? null : _pickAndImport,
               icon: const Icon(Icons.add),
             ),
-            IconButton(
+            _AppBarAction(
               tooltip: '搜索（Ctrl+F）',
               onPressed: _openSearch,
               icon: const Icon(Icons.search),
             ),
-            IconButton(
+            _AppBarAction(
               tooltip: _pinnedOnly ? '显示全部文献' : '仅看置顶',
-              isSelected: _pinnedOnly,
               onPressed: () => setState(() => _pinnedOnly = !_pinnedOnly),
+              active: _pinnedOnly,
               icon: Icon(
                 _pinnedOnly ? Icons.push_pin : Icons.push_pin_outlined,
-                color: _pinnedOnly
-                    ? Theme.of(context).colorScheme.primary
-                    : null,
               ),
             ),
             PopupMenuButton<DocSort>(
               tooltip: '排序（记住选择）',
-              icon: const Icon(Icons.sort),
+              icon: const Icon(Icons.sort, size: 20),
               onSelected: _changeSort,
               itemBuilder: (context) => [
                 _sortItem(DocSort.recent, '最近阅读'),
@@ -321,14 +358,14 @@ class _LibraryPageState extends State<LibraryPage> {
                 _sortItem(DocSort.progress, '阅读进度'),
               ],
             ),
-            IconButton(
+            _AppBarAction(
               tooltip: _viewMode == 'grid' ? '切换列表视图' : '切换网格视图',
               onPressed: _toggleView,
               icon: Icon(_viewMode == 'grid'
                   ? Icons.view_list_outlined
                   : Icons.grid_view_outlined),
             ),
-            IconButton(
+            _AppBarAction(
               tooltip: '阅读统计',
               onPressed: () => Navigator.push(
                 context,
@@ -338,27 +375,29 @@ class _LibraryPageState extends State<LibraryPage> {
             ),
             PopupMenuButton<String>(
               tooltip: '导出',
-              icon: const Icon(Icons.file_download_outlined),
+              icon: const Icon(Icons.file_download_outlined, size: 20),
               onSelected: (v) {
                 if (v == 'notes') _exportAllNotes();
                 if (v == 'csv') _exportLibraryCsv();
                 if (v == 'filtered_csv') _exportFilteredCsv();
               },
               itemBuilder: (context) => [
-                const PopupMenuItem(value: 'notes', child: Text('导出全部批注（Markdown）')),
-                const PopupMenuItem(value: 'csv', child: Text('导出书库清单（CSV）')),
-                // 有筛选/搜索时才提供按结果导出
+                const PopupMenuItem(
+                    value: 'notes', child: Text('导出全部批注（Markdown）')),
+                const PopupMenuItem(
+                    value: 'csv', child: Text('导出书库清单（CSV）')),
                 if (_hasFilter)
                   const PopupMenuItem(
-                      value: 'filtered_csv', child: Text('导出当前筛选结果（CSV）')),
+                      value: 'filtered_csv',
+                      child: Text('导出当前筛选结果（CSV）')),
               ],
             ),
-            IconButton(
+            _AppBarAction(
               tooltip: '快捷键（Ctrl+/）',
               onPressed: () => showShortcutsHelp(context),
               icon: const Icon(Icons.keyboard_outlined),
             ),
-            IconButton(
+            _AppBarAction(
               tooltip: '设置（Ctrl+,）',
               onPressed: () => Navigator.push(
                 context,
@@ -368,45 +407,50 @@ class _LibraryPageState extends State<LibraryPage> {
               ),
               icon: const Icon(Icons.settings_outlined),
             ),
+            const SizedBox(width: 8),
           ],
         ),
-        body: Column(
-          children: [
-            Expanded(
-              child: StreamBuilder<List<LibraryDoc>>(
-                stream:
-                    _c.libraryRepo.watchAll(
+        body: AmbientBackdrop(
+          child: Padding(
+            // 内容整体让出悬浮玻璃顶栏（含 Android 状态栏内边距）。
+            padding: EdgeInsets.only(top: GlassAppBar.insetOf(context)),
+            child: Column(
+              children: [
+                Expanded(
+                  child: StreamBuilder<List<LibraryDoc>>(
+                    stream: _c.libraryRepo.watchAll(
                       keyword: _keyword,
                       sort: _sort,
                       ascending: _sortAscending,
                       pinnedOnly: _pinnedOnly ? true : null,
                     ),
-                builder: (context, snap) {
-                  final all = snap.data ?? const <LibraryDoc>[];
-                  if (snap.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (all.isEmpty) {
-                    return _pinnedOnly
-                        ? _EmptyPinnedOnly(
-                            onShowAll: () => setState(() => _pinnedOnly = false),
-                          )
-                        : _EmptyLibrary(
-                            keyword: _keyword,
-                            onImport: _importing ? null : _pickAndImport,
-                          );
-                  }
-                  final tags = collectTags(all);
-                  final docs = filterByTags(all, _selectedTags);
-                  return Column(
-                    children: [
-                      if (tags.isNotEmpty && !_multiSelectMode)
-                        _TagFilterBar(
-                          tags: tags.toList(),
-                          selected: _selectedTags,
-                          onToggle: _toggleTag,
-                          onClear: () => setState(_selectedTags.clear),
-                        ),
+                    builder: (context, snap) {
+                      final all = snap.data ?? const <LibraryDoc>[];
+                      if (snap.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (all.isEmpty) {
+                        return _pinnedOnly
+                            ? _EmptyPinnedOnly(
+                                onShowAll: () =>
+                                    setState(() => _pinnedOnly = false),
+                              )
+                            : _EmptyLibrary(
+                                keyword: _keyword,
+                                onImport: _importing ? null : _pickAndImport,
+                              );
+                      }
+                      final tags = collectTags(all);
+                      final docs = filterByTags(all, _selectedTags);
+                      return Column(
+                        children: [
+                          if (tags.isNotEmpty && !_multiSelectMode)
+                            _TagFilterBar(
+                              tags: tags.toList(),
+                              selected: _selectedTags,
+                              onToggle: _toggleTag,
+                              onClear: () => setState(_selectedTags.clear),
+                            ),
                           Expanded(
                             child: docs.isEmpty
                                 ? _EmptyFiltered(
@@ -417,95 +461,119 @@ class _LibraryPageState extends State<LibraryPage> {
                                   )
                                 : _buildDocsView(docs),
                           ),
-                    ],
-                  );
-                },
-              ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+                if (_importing) _buildImportBar(context, t),
+                if (_multiSelectMode) _buildMultiSelectBar(context, t),
+              ],
             ),
-            if (_importing)
-              SafeArea(
-                top: false,
-                child: Material(
-                  elevation: 6,
-                  color: Theme.of(context).colorScheme.surfaceContainerHigh,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 10),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2.2),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                _importStatus,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(3),
-                          child: LinearProgressIndicator(
-                            value: _importProgress > 0 ? _importProgress : null,
-                            minHeight: 4,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            if (_multiSelectMode)
-              SafeArea(
-                top: false,
-                child: Material(
-                  elevation: 6,
-                  color: Theme.of(context).colorScheme.surfaceContainerHigh,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 10),
-                    child: Row(
-                      children: [
-                        Text('已选 ${_multiSelected.length} 篇'),
-                        const Spacer(),
-                        TextButton.icon(
-                          onPressed:
-                              _multiSelected.isEmpty ? null : _multiAddTag,
-                          icon: const Icon(Icons.label_outline, size: 18),
-                          label: const Text('加标签'),
-                        ),
-                        const SizedBox(width: 8),
-                        FilledButton.icon(
-                          style: FilledButton.styleFrom(
-                            backgroundColor:
-                                Theme.of(context).colorScheme.error,
-                          ),
-                          onPressed:
-                              _multiSelected.isEmpty ? null : _multiDelete,
-                          icon: const Icon(Icons.delete_outline, size: 18),
-                          label: const Text('移除'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-          ],
+          ),
         ),
       ),
     );
   }
+
+  /// 导入进度条：玻璃浮条 + 胶囊进度。
+  Widget _buildImportBar(BuildContext context, AppTokens t) {
+    final text = Theme.of(context).textTheme;
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.page,
+          0,
+          AppSpacing.page,
+          AppSpacing.page,
+        ),
+        child: GlassPanel(
+          borderRadius: AppRadius.card,
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  SizedBox(
+                    width: 15,
+                    height: 15,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: t.accent,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _importStatus,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: text.bodyMedium,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(AppRadius.micro),
+                child: LinearProgressIndicator(
+                  value: _importProgress > 0 ? _importProgress : null,
+                  minHeight: 4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 多选操作条：玻璃浮条 + 胶囊按钮。
+  Widget _buildMultiSelectBar(BuildContext context, AppTokens t) {
+    final text = Theme.of(context).textTheme;
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.page,
+          0,
+          AppSpacing.page,
+          AppSpacing.page,
+        ),
+        child: GlassPanel(
+          borderRadius: AppRadius.card,
+          padding: const EdgeInsets.fromLTRB(16, 10, 10, 10),
+          child: Row(
+            children: [
+              Icon(Icons.check_circle, size: 18, color: t.accent),
+              const SizedBox(width: 8),
+              Text('已选 ${_multiSelected.length} 篇', style: text.titleSmall),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: _multiSelected.isEmpty ? null : _multiAddTag,
+                icon: const Icon(Icons.label_outline, size: 16),
+                label: const Text('加标签'),
+              ),
+              const SizedBox(width: 4),
+              FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: t.danger,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: _multiSelected.isEmpty ? null : _multiDelete,
+                icon: const Icon(Icons.delete_outline, size: 16),
+                label: const Text('移除'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
 
   PopupMenuItem<DocSort> _sortItem(DocSort s, String label) => PopupMenuItem(
         value: s,
@@ -920,6 +988,7 @@ class _TagFilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
     return SizedBox(
       height: 52,
       child: Row(
@@ -927,27 +996,77 @@ class _TagFilterBar extends StatelessWidget {
           Expanded(
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.page,
+                vertical: 10,
+              ),
               child: Row(
                 children: [
-                  for (final t in tags)
+                  for (final tag in tags)
                     Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: FilterChip(
-                        label: Text(t),
-                        selected: selected.contains(t),
-                        onSelected: (_) => onToggle(t),
-                        visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.only(right: 8),
+                      child: _TagChip(
+                        label: tag,
+                        selected: selected.contains(tag),
+                        onTap: () => onToggle(tag),
                       ),
                     ),
                 ],
               ),
             ),
           ),
-          if (selected.isNotEmpty)
-            TextButton(onPressed: onClear, child: const Text('清除')),
-          const SizedBox(width: 4),
+          if (selected.isNotEmpty) ...[
+            TextButton(
+              onPressed: onClear,
+              child: Text('清除', style: TextStyle(color: t.accent)),
+            ),
+            const SizedBox(width: 8),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+/// 通透胶囊标签：选中态主色淡底 + 主色文字，未选中态系统填充。
+class _TagChip extends StatelessWidget {
+  const _TagChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.chip),
+        child: AnimatedContainer(
+          duration: AppDurations.fast,
+          curve: AppDurations.curve,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: selected ? t.accentSoft : t.fill,
+            borderRadius: BorderRadius.circular(AppRadius.chip),
+            border: Border.all(
+              color: selected ? t.accent.withValues(alpha: 0.35) : Colors.transparent,
+            ),
+          ),
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: selected ? t.accent : t.textSecondary,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                ),
+          ),
+        ),
       ),
     );
   }
@@ -975,52 +1094,129 @@ class _DocListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final subtitle = <String>[
+    final t = context.tokens;
+    final text = Theme.of(context).textTheme;
+    final meta = <String>[
       doc.format.label,
       if (doc.author?.isNotEmpty == true) doc.author!,
       if (doc.tags.isNotEmpty) doc.tags.join(' · '),
       doc.lastOpenedAt != null ? '读过 ${Fmt.date(doc.lastOpenedAt)}' : '未读',
-    ].join('　');
-    return ListTile(
-      onTap: () => onOpen(doc),
-      onLongPress: () => onMenu(doc),
-      leading: Icon(_icon, color: theme.colorScheme.primary),
-      title: Text(doc.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 2),
-          Text(
-            subtitle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.labelSmall,
+    ].join(' · ');
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.page,
+        4,
+        AppSpacing.page,
+        4,
+      ),
+      child: GlassCard(
+        borderRadius: AppRadius.card,
+        elevation: 6,
+        padding: EdgeInsets.zero,
+        onTap: () => onOpen(doc),
+        onLongPress: () => onMenu(doc),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+          child: Row(
+            children: [
+              _FormatBadge(icon: _icon, pinned: doc.pinned),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      doc.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: text.titleSmall?.copyWith(color: t.textPrimary),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      meta,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: text.labelSmall?.copyWith(color: t.textSecondary),
+                    ),
+                    const SizedBox(height: 7),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius:
+                                BorderRadius.circular(AppRadius.micro),
+                            child: LinearProgressIndicator(
+                              value: doc.progress > 0 ? doc.progress : 0,
+                              minHeight: 3,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${(doc.progress * 100).toStringAsFixed(0)}%',
+                          style: text.labelSmall?.copyWith(
+                            color: t.textTertiary,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: '更多',
+                onPressed: () => onMenu(doc),
+                icon: Icon(Icons.more_vert, size: 18, color: t.textTertiary),
+              ),
+            ],
           ),
-          const SizedBox(height: 4),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(3),
-            child: LinearProgressIndicator(
-              value: doc.progress > 0 ? doc.progress : null,
-              minHeight: 3,
+        ),
+      ),
+    );
+  }
+}
+
+/// 格式徽标：主色淡底圆角方块 + 格式图标。
+class _FormatBadge extends StatelessWidget {
+  const _FormatBadge({required this.icon, this.pinned = false, this.size = 40});
+
+  final IconData icon;
+  final bool pinned;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: t.accentSoft,
+            borderRadius: BorderRadius.circular(AppRadius.control),
+          ),
+          child: Icon(icon, size: size * 0.5, color: t.accent),
+        ),
+        if (pinned)
+          Positioned(
+            right: -3,
+            top: -3,
+            child: Container(
+              width: 15,
+              height: 15,
+              decoration: BoxDecoration(
+                color: t.accent,
+                shape: BoxShape.circle,
+                border: Border.all(color: t.card, width: 1.5),
+              ),
+              child: const Icon(Icons.push_pin, size: 8, color: Colors.white),
             ),
           ),
-        ],
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            '${(doc.progress * 100).toStringAsFixed(0)}%',
-            style: theme.textTheme.labelSmall,
-          ),
-          IconButton(
-            tooltip: '更多',
-            onPressed: () => onMenu(doc),
-            icon: const Icon(Icons.more_vert),
-          ),
-        ],
-      ),
+      ],
     );
   }
 }
@@ -1034,22 +1230,11 @@ class _EmptyPinnedOnly extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.push_pin_outlined,
-              size: 48, color: Theme.of(context).colorScheme.outline),
-          const SizedBox(height: 10),
-          const Text('还没有置顶的文献'),
-          const SizedBox(height: 4),
-          Text(
-            '在文献菜单里选择「置顶」即可把常用文献固定在最前',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          TextButton(onPressed: onShowAll, child: const Text('显示全部文献')),
-        ],
-      ),
+    return EmptyState(
+      icon: Icons.push_pin_outlined,
+      title: '还没有置顶的文献',
+      description: '在文献菜单里选择「置顶」，常用文献就会固定在最前',
+      action: TextButton(onPressed: onShowAll, child: const Text('显示全部文献')),
     );
   }
 }
@@ -1061,17 +1246,11 @@ class _EmptyFiltered extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.filter_alt_off_outlined,
-              size: 48, color: Theme.of(context).colorScheme.outline),
-          const SizedBox(height: 10),
-          const Text('没有匹配所选标签的文献'),
-          TextButton(onPressed: onClear, child: const Text('清除标签筛选')),
-        ],
-      ),
+    return EmptyState(
+      icon: Icons.filter_alt_off_outlined,
+      title: '没有匹配所选标签的文献',
+      description: '试试减少标签，或清除筛选',
+      action: TextButton(onPressed: onClear, child: const Text('清除标签筛选')),
     );
   }
 }
@@ -1086,34 +1265,19 @@ class _EmptyLibrary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.auto_stories,
-              size: 64, color: Theme.of(context).colorScheme.outline),
-          const SizedBox(height: 12),
-          Text(
-            keyword.isEmpty ? '书库还是空的' : '没有匹配“$keyword”的文献',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 6),
-          Text(
-            keyword.isEmpty
-                ? '支持 PDF / EPUB / Markdown / TXT'
-                : '换个关键词试试',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          if (keyword.isEmpty) ...[
-            const SizedBox(height: 16),
-            FilledButton.icon(
+    return EmptyState(
+      icon: Icons.auto_stories_outlined,
+      title: keyword.isEmpty ? '书库还是空的' : '没有匹配“$keyword”的文献',
+      description: keyword.isEmpty
+          ? '支持 PDF / EPUB / Markdown / TXT\n拖入或点击下方按钮开始导入'
+          : '换个关键词试试',
+      action: keyword.isEmpty
+          ? FilledButton.icon(
               onPressed: onImport,
-              icon: const Icon(Icons.upload_file),
+              icon: const Icon(Icons.upload_file, size: 18),
               label: const Text('导入文献'),
-            ),
-          ],
-        ],
-      ),
+            )
+          : null,
     );
   }
 }
@@ -1144,122 +1308,161 @@ class _DocCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final t = context.tokens;
+    final text = Theme.of(context).textTheme;
     final isSelected = selected == true;
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      shape: isSelected
-          ? RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(
-                  color: theme.colorScheme.primary, width: 2),
-            )
-          : null,
-      child: InkWell(
-        onTap: () => onOpen(doc),
-        onLongPress: () => onMenu(doc),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(_icon, size: 20, color: theme.colorScheme.primary),
-                  if (doc.pinned) ...[
-                    const SizedBox(width: 4),
-                    Icon(Icons.push_pin,
-                        size: 14, color: theme.colorScheme.primary),
-                  ],
-                  const Spacer(),
-                  if (selected != null)
-                    Icon(
+
+    return GlassCard(
+      borderRadius: AppRadius.card,
+      elevation: 10,
+      padding: EdgeInsets.zero,
+      selected: isSelected,
+      onTap: () => onOpen(doc),
+      onLongPress: () => onMenu(doc),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                _FormatBadge(icon: _icon, pinned: doc.pinned, size: 34),
+                const Spacer(),
+                if (selected != null)
+                  AnimatedSwitcher(
+                    duration: AppDurations.fast,
+                    child: Icon(
                       isSelected
                           ? Icons.check_circle
                           : Icons.radio_button_unchecked,
+                      key: ValueKey(isSelected),
                       size: 20,
-                      color: isSelected
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.outline,
-                    )
-                  else
-                    InkWell(
-                      onTap: () => onMenu(doc),
-                      child: Icon(Icons.more_vert,
-                          size: 18, color: theme.colorScheme.outline),
+                      color: isSelected ? t.accent : t.textTertiary,
                     ),
-                ],
+                  )
+                else
+                  InkWell(
+                    onTap: () => onMenu(doc),
+                    borderRadius: BorderRadius.circular(AppRadius.chip),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(Icons.more_horiz,
+                          size: 18, color: t.textTertiary),
+                    ),
+                  ),
+              ],
+            ),
+            const Spacer(),
+            Text(
+              doc.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: text.titleSmall?.copyWith(
+                color: t.textPrimary,
+                height: 1.35,
               ),
-              const Spacer(),
-              Text(
-                doc.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleSmall,
+            ),
+            if (doc.author?.isNotEmpty == true)
+              Padding(
+                padding: const EdgeInsets.only(top: 3),
+                child: Text(
+                  doc.author!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: text.labelSmall?.copyWith(color: t.textSecondary),
+                ),
               ),
-              if (doc.author?.isNotEmpty == true)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
+            if (doc.tags.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  children: [
+                    for (final tag in doc.tags.take(3))
+                      GlassPill(label: tag, dense: true),
+                  ],
+                ),
+              ),
+            const Spacer(),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(AppRadius.micro),
+              child: LinearProgressIndicator(
+                value: doc.progress > 0 ? doc.progress : 0,
+                minHeight: 3,
+              ),
+            ),
+            const SizedBox(height: 7),
+            Row(
+              children: [
+                Icon(Icons.schedule, size: 11, color: t.textTertiary),
+                const SizedBox(width: 4),
+                Expanded(
                   child: Text(
-                    doc.author!,
+                    doc.lastOpenedAt != null
+                        ? Fmt.date(doc.lastOpenedAt)
+                        : '未读',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: theme.colorScheme.outline),
+                    style: text.labelSmall?.copyWith(color: t.textTertiary),
                   ),
                 ),
-              if (doc.tags.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Wrap(
-                    spacing: 4,
-                    runSpacing: 2,
-                    children: [
-                      for (final t in doc.tags.take(3))
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.secondaryContainer,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            t,
-                            style: theme.textTheme.labelSmall,
-                          ),
-                        ),
-                    ],
+                Text(
+                  '${(doc.progress * 100).toStringAsFixed(0)}%',
+                  style: text.labelSmall?.copyWith(
+                    color: t.textTertiary,
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
-              const Spacer(),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: doc.progress > 0 ? doc.progress : null,
-                  minHeight: 4,
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------- 顶栏动作 ----------------
+
+/// 顶栏图标按钮：36pt 圆形热区，选中态主色淡底。
+class _AppBarAction extends StatelessWidget {
+  const _AppBarAction({
+    required this.tooltip,
+    required this.icon,
+    this.onPressed,
+    this.active = false,
+  });
+
+  final String tooltip;
+  final Widget icon;
+  final VoidCallback? onPressed;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    return Tooltip(
+      message: tooltip,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 1),
+        child: Material(
+          color: active ? t.accentSoft : Colors.transparent,
+          shape: const CircleBorder(),
+          child: InkWell(
+            onTap: onPressed,
+            customBorder: const CircleBorder(),
+            child: SizedBox(
+              width: 36,
+              height: 36,
+              child: IconTheme(
+                data: IconThemeData(
+                  size: 20,
+                  color: active ? t.accent : t.textSecondary,
                 ),
+                child: Center(child: icon),
               ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Text(
-                    doc.lastOpenedAt != null
-                        ? '读过 ${Fmt.date(doc.lastOpenedAt)}'
-                        : '未读',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.outline,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    '${(doc.progress * 100).toStringAsFixed(0)}%',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.outline,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+            ),
           ),
         ),
       ),

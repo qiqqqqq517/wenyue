@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'shortcuts.dart';
+import 'theme.dart';
 
 /// 快捷键帮助条目（供帮助弹窗与测试使用）。
 class ShortcutInfo {
@@ -49,11 +50,26 @@ class ShortcutsHelpDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final t = context.tokens;
+    final text = Theme.of(context).textTheme;
     return AlertDialog(
-      title: const Text('快捷键'),
+      title: Row(
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: t.accentSoft,
+              borderRadius: BorderRadius.circular(AppRadius.chip),
+            ),
+            child: Icon(Icons.keyboard_outlined, size: 17, color: t.accent),
+          ),
+          const SizedBox(width: 10),
+          const Text('快捷键'),
+        ],
+      ),
       content: SizedBox(
-        width: 460,
+        width: 470,
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -61,11 +77,14 @@ class ShortcutsHelpDialog extends StatelessWidget {
             children: [
               for (final group in kShortcutGroups) ...[
                 Padding(
-                  padding: const EdgeInsets.only(top: 8, bottom: 4),
+                  padding: const EdgeInsets.only(top: 12, bottom: 6),
                   child: Text(
                     group.title,
-                    style: theme.textTheme.labelLarge
-                        ?.copyWith(color: theme.colorScheme.primary),
+                    style: text.labelMedium?.copyWith(
+                      color: t.textSecondary,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.6,
+                    ),
                   ),
                 ),
                 for (final item in group.items)
@@ -73,28 +92,35 @@ class ShortcutsHelpDialog extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 3),
                     child: Row(
                       children: [
-                        SizedBox(
-                          width: 110,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              item.keys,
-                              textAlign: TextAlign.center,
-                              style: theme.textTheme.labelMedium?.copyWith(
-                                fontFamily: 'Consolas',
-                              ),
+                        Container(
+                          width: 112,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: t.fill,
+                            borderRadius:
+                                BorderRadius.circular(AppRadius.micro),
+                          ),
+                          child: Text(
+                            item.keys,
+                            textAlign: TextAlign.center,
+                            style: text.labelMedium?.copyWith(
+                              fontFamily: 'Consolas',
+                              color: t.textPrimary,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
                         const SizedBox(width: 14),
                         Expanded(
-                          child: Text(item.description,
-                              style: theme.textTheme.bodyMedium),
+                          child: Text(
+                            item.description,
+                            style: text.bodyMedium?.copyWith(
+                              color: t.textPrimary,
+                            ),
+                          ),
                         ),
                       ],
                     ),

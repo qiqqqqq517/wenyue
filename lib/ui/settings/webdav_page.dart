@@ -7,6 +7,8 @@ import '../../di/app_container.dart';
 import '../../domain/entities/annotation.dart';
 import '../../domain/entities/document.dart';
 import '../../services/sync/sync_engine.dart';
+import '../theme.dart';
+import '../widgets/glass.dart';
 
 /// WebDAV 同步页：服务器配置、手动同步、状态日志、冲突处理、备份恢复。
 class WebDavPage extends StatefulWidget {
@@ -357,111 +359,242 @@ class _WebDavPageState extends State<WebDavPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.tokens;
+    final text = Theme.of(context).textTheme;
     if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(
+        backgroundColor: Colors.transparent,
+        body: AmbientBackdrop(
+          child: const Center(child: CircularProgressIndicator()),
+        ),
+      );
     }
     return Scaffold(
-      appBar: AppBar(title: const Text('WebDAV 同步')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          TextField(
-            controller: _urlC,
-            decoration: const InputDecoration(
-              labelText: '服务器地址（https://dav.example.com/dav）',
-              border: OutlineInputBorder(),
+      backgroundColor: Colors.transparent,
+      extendBodyBehindAppBar: true,
+      appBar: const GlassAppBar(title: Text('WebDAV 同步')),
+      body: AmbientBackdrop(
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(
+            AppSpacing.page,
+            GlassAppBar.insetOf(context) + AppSpacing.cardGap,
+            AppSpacing.page,
+            AppSpacing.contentBottom,
+          ),
+          children: [
+            const SectionHeader(
+              '服务器',
+              padding: EdgeInsets.only(bottom: 8),
             ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _userC,
-            decoration: const InputDecoration(
-              labelText: '用户名',
-              border: OutlineInputBorder(),
+            GlassCard(
+              padding: const EdgeInsets.all(AppSpacing.cardInner),
+              child: Column(
+                children: [
+                  TextField(
+                    controller: _urlC,
+                    decoration: const InputDecoration(
+                      labelText: '服务器地址',
+                      hintText: 'https://dav.example.com/dav',
+                      prefixIcon: Icon(Icons.link, size: 18),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _userC,
+                    decoration: const InputDecoration(
+                      labelText: '用户名',
+                      prefixIcon: Icon(Icons.person_outline, size: 18),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _passwordC,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: '密码',
+                      hintText: '保存在系统安全存储',
+                      prefixIcon: Icon(Icons.lock_outline, size: 18),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _basePathC,
+                    decoration: const InputDecoration(
+                      labelText: '远端目录',
+                      hintText: '/wenyue-sync',
+                      prefixIcon: Icon(Icons.folder_outlined, size: 18),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _passwordC,
-            obscureText: true,
-            decoration: const InputDecoration(
-              labelText: '密码（保存在系统安全存储）',
-              border: OutlineInputBorder(),
+            const SizedBox(height: 10),
+            GlassCard(
+              padding: EdgeInsets.zero,
+              child: SwitchListTile(
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: AppSpacing.cardInner),
+                title: const Text('同步前自动创建本地备份'),
+                value: _autoBackup,
+                onChanged: (v) {
+                  setState(() => _autoBackup = v);
+                  _c.settings.setAutoBackupBeforeSync(v);
+                },
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _basePathC,
-            decoration: const InputDecoration(
-              labelText: '远端目录（如 /wenyue-sync）',
-              border: OutlineInputBorder(),
+            const SizedBox(height: AppSpacing.cardGap),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _syncing ? null : _testConnection,
+                    icon: const Icon(Icons.wifi_tethering, size: 18),
+                    label: const Text('测试连接'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: _syncing ? null : _syncNow,
+                    icon: _syncing
+                        ? const SizedBox(
+                            width: 15,
+                            height: 15,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.sync, size: 18),
+                    label: const Text('立即同步'),
+                  ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 8),
-          SwitchListTile(
-            title: const Text('同步前自动创建本地备份'),
-            value: _autoBackup,
-            onChanged: (v) {
-              setState(() => _autoBackup = v);
-              _c.settings.setAutoBackupBeforeSync(v);
-            },
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _syncing ? null : _testConnection,
-                  icon: const Icon(Icons.wifi_tethering),
-                  label: const Text('测试连接'),
+            if (_lastSyncAt.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Row(
+                  children: [
+                    Icon(Icons.check_circle_outline,
+                        size: 13, color: t.textTertiary),
+                    const SizedBox(width: 5),
+                    Text(
+                      '上次同步 ${_lastSyncAt.substring(0, _lastSyncAt.length > 19 ? 19 : _lastSyncAt.length).replaceAll('T', ' ')}',
+                      style: text.labelSmall?.copyWith(color: t.textTertiary),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: _syncing ? null : _syncNow,
-                  icon: _syncing
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.sync),
-                  label: const Text('立即同步'),
+            if (_lastReport != null && !_lastReport!.ok)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: t.danger.withValues(alpha: t.isDark ? 0.14 : 0.07),
+                    borderRadius: BorderRadius.circular(AppRadius.control),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.error_outline, size: 16, color: t.danger),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '上次同步失败：${_lastReport!.error ?? ''}\n可检查网络后重试。',
+                          style: text.bodySmall?.copyWith(color: t.danger),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ],
-          ),
-          if (_lastSyncAt.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                '上次同步：${_lastSyncAt.substring(0, _lastSyncAt.length > 19 ? 19 : _lastSyncAt.length).replaceAll('T', ' ')}',
-                style: Theme.of(context).textTheme.bodySmall,
+            const SectionHeader('备份与恢复'),
+            GlassCard(
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  _WebDavRow(
+                    icon: Icons.restore_outlined,
+                    title: '创建备份',
+                    subtitle: '将书库与文献副本打包为 zip',
+                    onTap: _syncing ? null : _createBackup,
+                  ),
+                  Divider(
+                    height: 1,
+                    indent: 62,
+                    color: t.separator,
+                  ),
+                  _WebDavRow(
+                    icon: Icons.settings_backup_restore,
+                    title: '从备份恢复',
+                    subtitle: '覆盖当前书库，谨慎操作',
+                    onTap: _syncing ? null : _restoreBackup,
+                  ),
+                ],
               ),
             ),
-          if (_lastReport != null && !_lastReport!.ok)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                '上次同步失败：${_lastReport!.error ?? ''}\n可检查网络后重试。',
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 分组内的单行：主色淡底图标方块 + 标题 + 副标题 + 右箭头。
+class _WebDavRow extends StatelessWidget {
+  const _WebDavRow({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final text = Theme.of(context).textTheme;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.cardInner,
+          vertical: 12,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: t.accentSoft,
+                borderRadius: BorderRadius.circular(AppRadius.chip),
+              ),
+              child: Icon(icon, size: 17, color: t.accent),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: text.titleSmall),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: text.labelSmall?.copyWith(color: t.textSecondary),
+                  ),
+                ],
               ),
             ),
-          const Divider(height: 32),
-          ListTile(
-            leading: const Icon(Icons.restore_outlined),
-            title: const Text('创建备份'),
-            subtitle: const Text('将书库与文献副本打包为 zip'),
-            onTap: _syncing ? null : _createBackup,
-          ),
-          ListTile(
-            leading: const Icon(Icons.settings_backup_restore),
-            title: const Text('从备份恢复'),
-            subtitle: const Text('覆盖当前书库，谨慎操作'),
-            onTap: _syncing ? null : _restoreBackup,
-          ),
-        ],
+            Icon(Icons.chevron_right, size: 18, color: t.textTertiary),
+          ],
+        ),
       ),
     );
   }
