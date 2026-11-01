@@ -28,6 +28,7 @@ class Mappers {
         contentHash: row.contentHash,
         sourcePath: row.sourcePath,
         conflict: row.conflict,
+        pinned: row.pinned,
       );
 
   static db.DocumentsCompanion docToCompanion(LibraryDoc d) =>
@@ -48,6 +49,7 @@ class Mappers {
         contentHash: Value(d.contentHash),
         sourcePath: Value(d.sourcePath),
         conflict: Value(d.conflict),
+        pinned: Value(d.pinned),
       );
 
   static Annotation noteFromRow(db.Annotation row) => Annotation(

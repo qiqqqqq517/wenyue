@@ -57,6 +57,9 @@ class Documents extends Table {
   /// 同步冲突副本标记（默认 `false`）
   BoolColumn get conflict => boolean().withDefault(const Constant(false))();
 
+  /// 用户置顶标记（默认 `false`；置顶文献在任何排序下排最前）
+  BoolColumn get pinned => boolean().withDefault(const Constant(false))();
+
   /// 指定 `id` 列为主键
   @override
   Set<Column> get primaryKey => {id};

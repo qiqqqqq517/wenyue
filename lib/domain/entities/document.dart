@@ -91,6 +91,9 @@ class LibraryDoc {
   /// 是否为同步冲突产生的副本
   final bool conflict;
 
+  /// 用户置顶标记（置顶文献在任何排序下排最前）
+  final bool pinned;
+
   /// 构造函数：创建一个不可变的 [LibraryDoc] 实例。
   const LibraryDoc({
     required this.id,
@@ -109,6 +112,7 @@ class LibraryDoc {
     required this.contentHash,
     this.sourcePath,
     this.conflict = false, // 默认非冲突副本
+    this.pinned = false, // 默认不置顶
   });
 
   /// 当前文档是否处于活跃状态（未被软删除）。
@@ -125,6 +129,7 @@ class LibraryDoc {
     DateTime? updatedAt,
     DateTime? deletedAt,
     bool? conflict,
+    bool? pinned,
   }) =>
       LibraryDoc(
         id: id,
@@ -142,6 +147,7 @@ class LibraryDoc {
         deletedAt: deletedAt ?? this.deletedAt,
         contentHash: contentHash,
         conflict: conflict ?? this.conflict,
+        pinned: pinned ?? this.pinned,
       );
 
   /// 源文件所在目录（用于本地资源回退解析）。

@@ -613,6 +613,14 @@ class _LibraryPageState extends State<LibraryPage> {
               onTap: () => Navigator.pop(ctx, 'open'),
             ),
             ListTile(
+              leading: Icon(
+                doc.pinned ? Icons.push_pin : Icons.push_pin_outlined,
+                color: doc.pinned ? Theme.of(ctx).colorScheme.primary : null,
+              ),
+              title: Text(doc.pinned ? '取消置顶' : '置顶'),
+              onTap: () => Navigator.pop(ctx, 'pin'),
+            ),
+            ListTile(
               leading: const Icon(Icons.edit_outlined),
               title: const Text('编辑信息'),
               onTap: () => Navigator.pop(ctx, 'edit'),
@@ -645,6 +653,8 @@ class _LibraryPageState extends State<LibraryPage> {
         await _editDoc(doc);
       case 'export':
         await _exportNotes(doc);
+      case 'pin':
+        await _c.libraryRepo.togglePinned(doc.id);
       case 'remove':
         await _removeDoc(doc);
     }
@@ -1104,6 +1114,11 @@ class _DocCard extends StatelessWidget {
               Row(
                 children: [
                   Icon(_icon, size: 20, color: theme.colorScheme.primary),
+                  if (doc.pinned) ...[
+                    const SizedBox(width: 4),
+                    Icon(Icons.push_pin,
+                        size: 14, color: theme.colorScheme.primary),
+                  ],
                   const Spacer(),
                   if (selected != null)
                     Icon(

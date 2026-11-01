@@ -1,6 +1,26 @@
 # 验收记录
 
-> 更新：2026-11-01（第二十九轮迭代 v1.27.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+> 更新：2026-11-01（第三十轮迭代 v1.28.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+
+## 3.2 第三十轮迭代验收（v1.28.0 书库置顶，2026-11-01）
+
+| 项目 | 结果 |
+| --- | --- |
+| `dart analyze` | 0 问题 |
+| `flutter test` | 169/169（新增置顶测试 ×6，既有排序测试全回归） |
+| Windows Release 构建 | ✅ 经 `C:\wenyue` junction 构建并冒烟通过 |
+
+新增内容：
+
+- **schema v4 迁移**：documents 表新增 `pinned` 列（bool，默认 false）；
+  `onUpgrade from<4` 走 `m.addColumn`，老库升级自动补列。
+- **仓库**：`togglePinned(id)` 切换并返回新实体（找不到返回 null）。
+- **排序**：全部四种排序（recent/title/added/progress）把 `pinned DESC`
+  作为第一排序键——置顶文献压过其他规则排最前。
+- **UI**：文献菜单「置顶/取消置顶」（已置顶主色高亮）；卡片右上角钉标。
+- **测试 ×6**：默认值、切换持久化、不存在 id、recent 压过时间、title 压过标题、
+  v4 列存在。
+- **版本**：`pubspec.yaml` → `1.28.0+29`。
 
 ## 3.1 第二十九轮迭代验收（v1.27.0 书库筛选结果导出，2026-11-01）
 

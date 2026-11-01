@@ -181,6 +181,19 @@ class $DocumentsTable extends Documents
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _pinnedMeta = const VerificationMeta('pinned');
+  @override
+  late final GeneratedColumn<bool> pinned = GeneratedColumn<bool>(
+    'pinned',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("pinned" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -199,6 +212,7 @@ class $DocumentsTable extends Documents
     contentHash,
     sourcePath,
     conflict,
+    pinned,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -320,6 +334,12 @@ class $DocumentsTable extends Documents
         conflict.isAcceptableOrUnknown(data['conflict']!, _conflictMeta),
       );
     }
+    if (data.containsKey('pinned')) {
+      context.handle(
+        _pinnedMeta,
+        pinned.isAcceptableOrUnknown(data['pinned']!, _pinnedMeta),
+      );
+    }
     return context;
   }
 
@@ -395,6 +415,10 @@ class $DocumentsTable extends Documents
         DriftSqlType.bool,
         data['${effectivePrefix}conflict'],
       )!,
+      pinned: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}pinned'],
+      )!,
     );
   }
 
@@ -455,6 +479,9 @@ class Document extends DataClass implements Insertable<Document> {
 
   /// 同步冲突副本标记（默认 `false`）
   final bool conflict;
+
+  /// 用户置顶标记（默认 `false`；置顶文献在任何排序下排最前）
+  final bool pinned;
   const Document({
     required this.id,
     required this.title,
@@ -472,6 +499,7 @@ class Document extends DataClass implements Insertable<Document> {
     this.contentHash,
     this.sourcePath,
     required this.conflict,
+    required this.pinned,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -508,6 +536,7 @@ class Document extends DataClass implements Insertable<Document> {
       map['source_path'] = Variable<String>(sourcePath);
     }
     map['conflict'] = Variable<bool>(conflict);
+    map['pinned'] = Variable<bool>(pinned);
     return map;
   }
 
@@ -541,6 +570,7 @@ class Document extends DataClass implements Insertable<Document> {
           ? const Value.absent()
           : Value(sourcePath),
       conflict: Value(conflict),
+      pinned: Value(pinned),
     );
   }
 
@@ -568,6 +598,7 @@ class Document extends DataClass implements Insertable<Document> {
       contentHash: serializer.fromJson<String?>(json['contentHash']),
       sourcePath: serializer.fromJson<String?>(json['sourcePath']),
       conflict: serializer.fromJson<bool>(json['conflict']),
+      pinned: serializer.fromJson<bool>(json['pinned']),
     );
   }
   @override
@@ -592,6 +623,7 @@ class Document extends DataClass implements Insertable<Document> {
       'contentHash': serializer.toJson<String?>(contentHash),
       'sourcePath': serializer.toJson<String?>(sourcePath),
       'conflict': serializer.toJson<bool>(conflict),
+      'pinned': serializer.toJson<bool>(pinned),
     };
   }
 
@@ -612,6 +644,7 @@ class Document extends DataClass implements Insertable<Document> {
     Value<String?> contentHash = const Value.absent(),
     Value<String?> sourcePath = const Value.absent(),
     bool? conflict,
+    bool? pinned,
   }) => Document(
     id: id ?? this.id,
     title: title ?? this.title,
@@ -629,6 +662,7 @@ class Document extends DataClass implements Insertable<Document> {
     contentHash: contentHash.present ? contentHash.value : this.contentHash,
     sourcePath: sourcePath.present ? sourcePath.value : this.sourcePath,
     conflict: conflict ?? this.conflict,
+    pinned: pinned ?? this.pinned,
   );
   Document copyWithCompanion(DocumentsCompanion data) {
     return Document(
@@ -656,6 +690,7 @@ class Document extends DataClass implements Insertable<Document> {
           ? data.sourcePath.value
           : this.sourcePath,
       conflict: data.conflict.present ? data.conflict.value : this.conflict,
+      pinned: data.pinned.present ? data.pinned.value : this.pinned,
     );
   }
 
@@ -677,7 +712,8 @@ class Document extends DataClass implements Insertable<Document> {
           ..write('deletedAt: $deletedAt, ')
           ..write('contentHash: $contentHash, ')
           ..write('sourcePath: $sourcePath, ')
-          ..write('conflict: $conflict')
+          ..write('conflict: $conflict, ')
+          ..write('pinned: $pinned')
           ..write(')'))
         .toString();
   }
@@ -700,6 +736,7 @@ class Document extends DataClass implements Insertable<Document> {
     contentHash,
     sourcePath,
     conflict,
+    pinned,
   );
   @override
   bool operator ==(Object other) =>
@@ -720,7 +757,8 @@ class Document extends DataClass implements Insertable<Document> {
           other.deletedAt == this.deletedAt &&
           other.contentHash == this.contentHash &&
           other.sourcePath == this.sourcePath &&
-          other.conflict == this.conflict);
+          other.conflict == this.conflict &&
+          other.pinned == this.pinned);
 }
 
 class DocumentsCompanion extends UpdateCompanion<Document> {
@@ -740,6 +778,7 @@ class DocumentsCompanion extends UpdateCompanion<Document> {
   final Value<String?> contentHash;
   final Value<String?> sourcePath;
   final Value<bool> conflict;
+  final Value<bool> pinned;
   final Value<int> rowid;
   const DocumentsCompanion({
     this.id = const Value.absent(),
@@ -758,6 +797,7 @@ class DocumentsCompanion extends UpdateCompanion<Document> {
     this.contentHash = const Value.absent(),
     this.sourcePath = const Value.absent(),
     this.conflict = const Value.absent(),
+    this.pinned = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   DocumentsCompanion.insert({
@@ -777,6 +817,7 @@ class DocumentsCompanion extends UpdateCompanion<Document> {
     this.contentHash = const Value.absent(),
     this.sourcePath = const Value.absent(),
     this.conflict = const Value.absent(),
+    this.pinned = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        title = Value(title),
@@ -802,6 +843,7 @@ class DocumentsCompanion extends UpdateCompanion<Document> {
     Expression<String>? contentHash,
     Expression<String>? sourcePath,
     Expression<bool>? conflict,
+    Expression<bool>? pinned,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -821,6 +863,7 @@ class DocumentsCompanion extends UpdateCompanion<Document> {
       if (contentHash != null) 'content_hash': contentHash,
       if (sourcePath != null) 'source_path': sourcePath,
       if (conflict != null) 'conflict': conflict,
+      if (pinned != null) 'pinned': pinned,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -842,6 +885,7 @@ class DocumentsCompanion extends UpdateCompanion<Document> {
     Value<String?>? contentHash,
     Value<String?>? sourcePath,
     Value<bool>? conflict,
+    Value<bool>? pinned,
     Value<int>? rowid,
   }) {
     return DocumentsCompanion(
@@ -861,6 +905,7 @@ class DocumentsCompanion extends UpdateCompanion<Document> {
       contentHash: contentHash ?? this.contentHash,
       sourcePath: sourcePath ?? this.sourcePath,
       conflict: conflict ?? this.conflict,
+      pinned: pinned ?? this.pinned,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -918,6 +963,9 @@ class DocumentsCompanion extends UpdateCompanion<Document> {
     if (conflict.present) {
       map['conflict'] = Variable<bool>(conflict.value);
     }
+    if (pinned.present) {
+      map['pinned'] = Variable<bool>(pinned.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -943,6 +991,7 @@ class DocumentsCompanion extends UpdateCompanion<Document> {
           ..write('contentHash: $contentHash, ')
           ..write('sourcePath: $sourcePath, ')
           ..write('conflict: $conflict, ')
+          ..write('pinned: $pinned, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2240,6 +2289,7 @@ typedef $$DocumentsTableCreateCompanionBuilder = DocumentsCompanion Function({
   Value<String?> contentHash,
   Value<String?> sourcePath,
   Value<bool> conflict,
+  Value<bool> pinned,
   Value<int> rowid,
 });
 typedef $$DocumentsTableUpdateCompanionBuilder = DocumentsCompanion Function({
@@ -2259,6 +2309,7 @@ typedef $$DocumentsTableUpdateCompanionBuilder = DocumentsCompanion Function({
   Value<String?> contentHash,
   Value<String?> sourcePath,
   Value<bool> conflict,
+  Value<bool> pinned,
   Value<int> rowid,
 });
 
@@ -2351,6 +2402,11 @@ class $$DocumentsTableFilterComposer
     column: $table.conflict,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<bool> get pinned => $composableBuilder(
+    column: $table.pinned,
+    builder: (column) => ColumnFilters(column),
+  );
 }
 
 class $$DocumentsTableOrderingComposer
@@ -2441,6 +2497,11 @@ class $$DocumentsTableOrderingComposer
     column: $table.conflict,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get pinned => $composableBuilder(
+    column: $table.pinned,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$DocumentsTableAnnotationComposer
@@ -2507,6 +2568,9 @@ class $$DocumentsTableAnnotationComposer
 
   GeneratedColumn<bool> get conflict =>
       $composableBuilder(column: $table.conflict, builder: (column) => column);
+
+  GeneratedColumn<bool> get pinned =>
+      $composableBuilder(column: $table.pinned, builder: (column) => column);
 }
 
 class $$DocumentsTableTableManager
@@ -2553,6 +2617,7 @@ class $$DocumentsTableTableManager
                 Value<String?> contentHash = const Value.absent(),
                 Value<String?> sourcePath = const Value.absent(),
                 Value<bool> conflict = const Value.absent(),
+                Value<bool> pinned = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DocumentsCompanion(
                 id: id,
@@ -2571,6 +2636,7 @@ class $$DocumentsTableTableManager
                 contentHash: contentHash,
                 sourcePath: sourcePath,
                 conflict: conflict,
+                pinned: pinned,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -2591,6 +2657,7 @@ class $$DocumentsTableTableManager
                 Value<String?> contentHash = const Value.absent(),
                 Value<String?> sourcePath = const Value.absent(),
                 Value<bool> conflict = const Value.absent(),
+                Value<bool> pinned = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DocumentsCompanion.insert(
                 id: id,
@@ -2609,6 +2676,7 @@ class $$DocumentsTableTableManager
                 contentHash: contentHash,
                 sourcePath: sourcePath,
                 conflict: conflict,
+                pinned: pinned,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

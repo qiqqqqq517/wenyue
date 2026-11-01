@@ -26,21 +26,30 @@ class LibraryRepositoryImpl implements LibraryRepository {
         (d) => d.title.like(kw) | d.author.like(kw) | d.tags.like(kw),
       );
     }
-    // 升序切换仅对 title（ASC→DESC）生效；时间/进度类保持「最新在前」语义
+    // 置顶文献排最前，其余按原排序规则（升序切换仅对 title 生效）
     switch (sort) {
       case DocSort.recent:
         query.orderBy([
+          (d) => OrderingTerm.desc(d.pinned),
           (d) => OrderingTerm.desc(d.lastOpenedAt),
           (d) => OrderingTerm.desc(d.addedAt),
         ]);
       case DocSort.title:
         query.orderBy([
-          (d) => ascending ? OrderingTerm.asc(d.title) : OrderingTerm.desc(d.title),
+          (d) => OrderingTerm.desc(d.pinned),
+          (d) =>
+              ascending ? OrderingTerm.asc(d.title) : OrderingTerm.desc(d.title),
         ]);
       case DocSort.added:
-        query.orderBy([(d) => OrderingTerm.desc(d.addedAt)]);
+        query.orderBy([
+          (d) => OrderingTerm.desc(d.pinned),
+          (d) => OrderingTerm.desc(d.addedAt),
+        ]);
       case DocSort.progress:
-        query.orderBy([(d) => OrderingTerm.desc(d.progress)]);
+        query.orderBy([
+          (d) => OrderingTerm.desc(d.pinned),
+          (d) => OrderingTerm.desc(d.progress),
+        ]);
     }
     return query.watch().map(
           (rows) => rows.map(Mappers.docFromRow).toList(),
@@ -63,6 +72,15 @@ class LibraryRepositoryImpl implements LibraryRepository {
   Future<void> update(LibraryDoc doc) {
     return (_db.update(_db.documents)..where((d) => d.id.equals(doc.id)))
         .write(Mappers.docToCompanion(doc));
+  }
+
+  @override
+  Future<LibraryDoc?> togglePinned(String id) async {
+    final row = await getById(id);
+    if (row == null) return null;
+    final next = row.copyWith(pinned: !row.pinned, updatedAt: DateTime.now());
+    await update(next);
+    return next;
   }
 
   @override

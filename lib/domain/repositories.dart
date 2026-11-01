@@ -28,6 +28,9 @@ abstract interface class LibraryRepository {
   /// 更新文档的元数据。
   Future<void> update(LibraryDoc doc);
 
+  /// 切换文献置顶标记（返回切换后的实体；找不到返回 null）。
+  Future<LibraryDoc?> togglePinned(String id);
+
   /// 保存阅读进度：记录最后打开时间、阅读位置和进度百分比。
   ///
   /// [id] 文档 ID。
