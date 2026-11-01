@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
@@ -102,14 +103,24 @@ class ImportService {
     final id = _uuid.v4();
     final storedName = _store.docFileName(id, name);
     await _store.writeFile(storedName, bytes);
-    final hash = sha1.convert(bytes).toString();
 
-    final meta = await _extractMetadata(format, input, bytes);
+    // CPU 密集部分（哈希 + 文本类元数据提取）放后台 Isolate，避免大文件卡 UI；
+    // PDF/EPUB 依赖原生引擎不能跨 Isolate，元数据在主 Isolate 补提取。
+    var prepared = await Isolate.run(() => _prepareInIsolate(format, bytes));
+    if (format == DocFormat.pdf || format == DocFormat.epub) {
+      final meta = await _extractMetadata(format, input, bytes);
+      prepared = (
+        hash: prepared.hash,
+        title: meta.title,
+        author: meta.author,
+      );
+    }
+
     final now = DateTime.now();
     return _library.add(LibraryDoc(
       id: id,
-      title: meta.title ?? _titleFromFileName(name),
-      author: meta.author,
+      title: prepared.title ?? _titleFromFileName(name),
+      author: prepared.author,
       format: format,
       fileName: storedName,
       fileSize: bytes.length,
@@ -120,7 +131,7 @@ class ImportService {
       lastOpenedAt: null,
       updatedAt: now,
       deletedAt: null,
-      contentHash: hash,
+      contentHash: prepared.hash,
       sourcePath: input.localPath,
     ));
   }
@@ -142,6 +153,49 @@ class ImportService {
         final text = decodeTextBytes(bytes);
         return (title: _firstNonEmptyLine(text, 50), author: null);
     }
+  }
+
+  /// 后台 Isolate 内执行：SHA1 哈希 + 文本类元数据提取（纯 CPU，无 IO）。
+  ///
+  /// PDF/EPUB 因依赖原生引擎/复杂对象不能跨 Isolate，仍在主 Isolate 处理
+  /// （由调用方在 Isolate.run 之后完成）。
+  static ({String hash, String? title, String? author}) _prepareInIsolate(
+    DocFormat format,
+    Uint8List bytes,
+  ) {
+    final hash = sha1.convert(bytes).toString();
+    switch (format) {
+      case DocFormat.markdown:
+        final text = decodeTextBytes(bytes);
+        return (hash: hash, title: _firstMarkdownHeadingStatic(text), author: null);
+      case DocFormat.txt:
+        final text = decodeTextBytes(bytes);
+        return (hash: hash, title: _firstNonEmptyLineStatic(text, 50), author: null);
+      case DocFormat.pdf:
+      case DocFormat.epub:
+        return (hash: hash, title: null, author: null);
+    }
+  }
+
+  static String? _firstMarkdownHeadingStatic(String text) {
+    for (final line in text.split('\n')) {
+      final l = line.trim();
+      if (l.startsWith('#')) {
+        return l.replaceFirst(RegExp(r'^#+\s*'), '').trim();
+      }
+      if (l.isNotEmpty) break; // 首个非空行不是标题则停止
+    }
+    return null;
+  }
+
+  static String? _firstNonEmptyLineStatic(String text, int maxLen) {
+    for (final line in text.split('\n')) {
+      final l = line.trim();
+      if (l.isNotEmpty) {
+        return l.length > maxLen ? l.substring(0, maxLen) : l;
+      }
+    }
+    return null;
   }
 
   Future<({String? title, String? author})> _pdfMeta(Uint8List bytes) async {

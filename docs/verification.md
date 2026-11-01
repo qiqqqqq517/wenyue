@@ -1,6 +1,25 @@
 # 验收记录
 
-> 更新：2026-11-01（第二十三轮迭代 v1.21.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+> 更新：2026-11-01（第二十四轮迭代 v1.22.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+
+## 2.6 第二十四轮迭代验收（v1.22.0 导入流水线 Isolate 化，2026-11-01）
+
+| 项目 | 结果 |
+| --- | --- |
+| `dart analyze` | 0 问题 |
+| `flutter test` | 142/142（无新增用例；既有 import ×6 直接覆盖新路径行为） |
+| Windows Release 构建 | ✅ 经 `C:\wenyue` junction 构建并冒烟通过 |
+
+改动内容：
+
+- **Isolate 化**：`importSingle` 的 SHA1 哈希与文本类元数据提取（MD/TXT）
+  移入 `Isolate.run(() => _prepareInIsolate(...))` 后台执行——大文件导入时
+  主 Isolate 不再被哈希/解码阻塞，进度条保持流畅。
+- **边界处理**：PDF/EPUB 依赖原生引擎（pdfrx）/复杂对象不可跨 Isolate，
+  其元数据在主 Isolate 补提取（`_extractMetadata` 保留）；Isolate 内仅纯 CPU。
+- **行为不变验证**：既有导入 6 例（含 MD 标题提取、损坏 PDF、空文件、
+  不存在路径）全数通过，确认新路径与旧路径产出一致。
+- **版本**：`pubspec.yaml` → `1.22.0+23`。
 
 ## 2.5 第二十三轮迭代验收（v1.21.0 大纲当前章节高亮，2026-11-01）
 
