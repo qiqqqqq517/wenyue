@@ -102,6 +102,14 @@ class SettingsStore {
     return load();
   }
 
+  /// 书库排序偏好（recent | added | title | progress）。
+  static const _kLibrarySort = 'library.sort';
+
+  String loadLibrarySort() => _prefs.getString(_kLibrarySort) ?? 'recent';
+
+  Future<void> saveLibrarySort(String v) =>
+      _prefs.setString(_kLibrarySort, v);
+
   /// 搜索历史（最近优先，去重，最多 10 条；跨文档共享）。
   static const _kSearchHistory = 'reader.searchHistory';
   static const _kSearchHistoryMax = 10;

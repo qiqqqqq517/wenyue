@@ -1,6 +1,23 @@
 # 验收记录
 
-> 更新：2026-11-01（第十九轮迭代 v1.17.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+> 更新：2026-11-01（第二十轮迭代 v1.18.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+
+## 2.2 第二十轮迭代验收（v1.18.0 书库排序偏好持久化，2026-11-01）
+
+| 项目 | 结果 |
+| --- | --- |
+| `dart analyze` | 0 问题 |
+| `flutter test` | 128/128（新增排序偏好存储 ×2） |
+| Windows Release 构建 | ✅ 经 `C:\wenyue` junction 构建并冒烟通过 |
+
+新增内容：
+
+- **排序偏好**：`SettingsStore.loadLibrarySort/saveLibrarySort`
+  （key `library.sort`，默认 `recent`）。
+- **库页接入**：initState 恢复（`DocSort.values` 匹配，非法值回退 recent）；
+  工具栏选择时保存（`_changeSort`）。
+- **单测 ×2**：默认值、保存读回。
+- **版本**：`pubspec.yaml` → `1.18.0+19`。
 
 ## 2.1 第十九轮迭代验收（v1.17.0 主题对比度护栏，2026-11-01）
 

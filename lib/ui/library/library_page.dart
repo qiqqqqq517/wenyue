@@ -29,8 +29,7 @@ class LibraryPage extends StatefulWidget {
 
 class _LibraryPageState extends State<LibraryPage> {
   String _keyword = '';
-  DocSort _sort = DocSort.recent;
-  bool _importing = false;
+  DocSort _sort = DocSort.recent;  bool _importing = false;
   String _importStatus = ''; // 导入进度文案（如 2/5 · xxx.pdf）
   double _importProgress = 0; // 0.0 ~ 1.0
   String _viewMode = 'grid';
@@ -46,6 +45,16 @@ class _LibraryPageState extends State<LibraryPage> {
   void initState() {
     super.initState();
     _viewMode = _c.settings.load().libraryView;
+    // 恢复上次使用的排序偏好（非法值回退默认）
+    final savedSort = _c.settings.loadLibrarySort();
+    _sort = DocSort.values
+        .where((s) => s.name == savedSort)
+        .firstOrNull ?? DocSort.recent;
+  }
+
+  void _changeSort(DocSort s) {
+    setState(() => _sort = s);
+    _c.settings.saveLibrarySort(s.name);
   }
 
   void _toggleMultiSelect(String id) {
@@ -270,9 +279,9 @@ class _LibraryPageState extends State<LibraryPage> {
               icon: const Icon(Icons.search),
             ),
             PopupMenuButton<DocSort>(
-              tooltip: '排序',
+              tooltip: '排序（记住选择）',
               icon: const Icon(Icons.sort),
-              onSelected: (s) => setState(() => _sort = s),
+              onSelected: _changeSort,
               itemBuilder: (context) => [
                 _sortItem(DocSort.recent, '最近阅读'),
                 _sortItem(DocSort.added, '添加时间'),

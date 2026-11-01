@@ -61,6 +61,27 @@ void main() {
     });
   });
 
+  group('SettingsStore 书库排序偏好', () {
+    test('默认 recent', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final store = SettingsStore(prefs);
+      expect(store.loadLibrarySort(), 'recent');
+    });
+
+    test('保存后可读回', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final store = SettingsStore(prefs);
+
+      await store.saveLibrarySort('title');
+      expect(store.loadLibrarySort(), 'title');
+
+      await store.saveLibrarySort('progress');
+      expect(store.loadLibrarySort(), 'progress');
+    });
+  });
+
   group('SettingsStore 搜索历史', () {
     test('默认空历史', () async {
       SharedPreferences.setMockInitialValues({});
