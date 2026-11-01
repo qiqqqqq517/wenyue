@@ -49,14 +49,19 @@ class AppContainer {
   ///
   /// [prefs] 由测试提供（如 `SharedPreferences.getInstance()` 配 mock 值），
   /// 生产组合根不使用本方法。
+  ///
+  /// [libraryRepo] 可覆盖书库仓库。widget 测试里 drift 是**真异步**，在
+  /// `testWidgets` 的 fake-async 区里永不推进，`StreamBuilder` 会一直停在
+  /// loading；此时注入一个同步返回 `Stream.value(...)` 的假仓库即可。
   static Future<AppContainer> forTesting(
-    SharedPreferences prefs,
-  ) async {
+    SharedPreferences prefs, {
+    LibraryRepository? libraryRepo,
+  }) async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     final store = _MemoryFileStore();
     return AppContainer._(
       database: db,
-      libraryRepo: LibraryRepositoryImpl(db),
+      libraryRepo: libraryRepo ?? LibraryRepositoryImpl(db),
       annotationRepo: AnnotationRepositoryImpl(db),
       statsRepo: ReadingStatsRepositoryImpl(db),
       fileStore: store,

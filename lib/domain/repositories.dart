@@ -12,11 +12,13 @@ abstract interface class LibraryRepository {
   ///
   /// [keyword] 可选搜索关键字，匹配标题和作者。
   /// [sort] 排序方式，默认按最近阅读时间。
+  /// [pinnedOnly] 为 true 时仅返回置顶文献（null/false = 不过滤）。
   /// 返回的 Stream 在数据库数据变更时自动推送新列表。
   Stream<List<LibraryDoc>> watchAll({
     String keyword,
     DocSort sort,
     bool ascending,
+    bool? pinnedOnly,
   });
 
   /// 根据 ID 获取单篇文档（可能返回 `null`，表示不存在）。

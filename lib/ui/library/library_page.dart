@@ -31,6 +31,7 @@ class _LibraryPageState extends State<LibraryPage> {
   String _keyword = '';
   DocSort _sort = DocSort.recent;
   bool _sortAscending = false; // 标题排序的升降序（仅 title 生效）
+  bool _pinnedOnly = false; // 仅看置顶
   bool _importing = false;
   String _importStatus = ''; // 导入进度文案（如 2/5 · xxx.pdf）
   double _importProgress = 0; // 0.0 ~ 1.0
@@ -40,6 +41,10 @@ class _LibraryPageState extends State<LibraryPage> {
   bool _multiSelectMode = false;
 
   AppContainer get _c => widget.container;
+
+  /// 是否有任何生效中的筛选（搜索 / 标签 / 仅看置顶）。
+  bool get _hasFilter =>
+      _keyword.isNotEmpty || _selectedTags.isNotEmpty || _pinnedOnly;
 
   static const _supportedExtensions = ['pdf', 'epub', 'md', 'markdown', 'txt'];
 
@@ -289,6 +294,17 @@ class _LibraryPageState extends State<LibraryPage> {
               onPressed: _openSearch,
               icon: const Icon(Icons.search),
             ),
+            IconButton(
+              tooltip: _pinnedOnly ? '显示全部文献' : '仅看置顶',
+              isSelected: _pinnedOnly,
+              onPressed: () => setState(() => _pinnedOnly = !_pinnedOnly),
+              icon: Icon(
+                _pinnedOnly ? Icons.push_pin : Icons.push_pin_outlined,
+                color: _pinnedOnly
+                    ? Theme.of(context).colorScheme.primary
+                    : null,
+              ),
+            ),
             PopupMenuButton<DocSort>(
               tooltip: '排序（记住选择）',
               icon: const Icon(Icons.sort),
@@ -332,7 +348,7 @@ class _LibraryPageState extends State<LibraryPage> {
                 const PopupMenuItem(value: 'notes', child: Text('导出全部批注（Markdown）')),
                 const PopupMenuItem(value: 'csv', child: Text('导出书库清单（CSV）')),
                 // 有筛选/搜索时才提供按结果导出
-                if (_keyword.isNotEmpty || _selectedTags.isNotEmpty)
+                if (_hasFilter)
                   const PopupMenuItem(
                       value: 'filtered_csv', child: Text('导出当前筛选结果（CSV）')),
               ],
@@ -363,6 +379,7 @@ class _LibraryPageState extends State<LibraryPage> {
                       keyword: _keyword,
                       sort: _sort,
                       ascending: _sortAscending,
+                      pinnedOnly: _pinnedOnly ? true : null,
                     ),
                 builder: (context, snap) {
                   final all = snap.data ?? const <LibraryDoc>[];
@@ -370,10 +387,14 @@ class _LibraryPageState extends State<LibraryPage> {
                     return const Center(child: CircularProgressIndicator());
                   }
                   if (all.isEmpty) {
-                    return _EmptyLibrary(
-                      keyword: _keyword,
-                      onImport: _importing ? null : _pickAndImport,
-                    );
+                    return _pinnedOnly
+                        ? _EmptyPinnedOnly(
+                            onShowAll: () => setState(() => _pinnedOnly = false),
+                          )
+                        : _EmptyLibrary(
+                            keyword: _keyword,
+                            onImport: _importing ? null : _pickAndImport,
+                          );
                   }
                   final tags = collectTags(all);
                   final docs = filterByTags(all, _selectedTags);
@@ -386,13 +407,16 @@ class _LibraryPageState extends State<LibraryPage> {
                           onToggle: _toggleTag,
                           onClear: () => setState(_selectedTags.clear),
                         ),
-                      Expanded(
-                        child: docs.isEmpty
-                            ? _EmptyFiltered(
-                                onClear: () => setState(_selectedTags.clear),
-                              )
-                            : _buildDocsView(docs),
-                      ),
+                          Expanded(
+                            child: docs.isEmpty
+                                ? _EmptyFiltered(
+                                    onClear: () => setState(() {
+                                      _selectedTags.clear();
+                                      _pinnedOnly = false;
+                                    }),
+                                  )
+                                : _buildDocsView(docs),
+                          ),
                     ],
                   );
                 },
@@ -804,7 +828,7 @@ class _LibraryPageState extends State<LibraryPage> {
   Future<void> _exportFilteredCsv() async {
     final docs = await _c.libraryRepo.getAllIncludingDeleted();
     final active = docs.where((d) => d.deletedAt == null).toList();
-    // 与列表展示一致的过滤：关键字（标题/作者/标签）+ 标签 OR
+    // 与列表展示一致的过滤：关键字（标题/作者/标签）+ 标签 OR + 仅看置顶
     final filtered = active
         .where((d) =>
             _keyword.isEmpty ||
@@ -814,6 +838,7 @@ class _LibraryPageState extends State<LibraryPage> {
         .where((d) =>
             _selectedTags.isEmpty ||
             _selectedTags.any((t) => d.tags.contains(t)))
+        .where((d) => !_pinnedOnly || d.pinned)
         .toList();
     if (filtered.isEmpty) {
       if (mounted) {
@@ -1001,6 +1026,33 @@ class _DocListTile extends StatelessWidget {
 }
 
 // ---------------- 筛选空状态 ----------------
+
+class _EmptyPinnedOnly extends StatelessWidget {
+  const _EmptyPinnedOnly({required this.onShowAll});
+
+  final VoidCallback onShowAll;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.push_pin_outlined,
+              size: 48, color: Theme.of(context).colorScheme.outline),
+          const SizedBox(height: 10),
+          const Text('还没有置顶的文献'),
+          const SizedBox(height: 4),
+          Text(
+            '在文献菜单里选择「置顶」即可把常用文献固定在最前',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          TextButton(onPressed: onShowAll, child: const Text('显示全部文献')),
+        ],
+      ),
+    );
+  }
+}
 
 class _EmptyFiltered extends StatelessWidget {
   const _EmptyFiltered({required this.onClear});

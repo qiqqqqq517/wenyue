@@ -1,6 +1,34 @@
 # 验收记录
 
-> 更新：2026-11-01（第三十轮迭代 v1.28.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+> 更新：2026-11-01（第三十一轮迭代 v1.29.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+
+## 3.3 第三十一轮迭代验收（v1.29.0 仅看置顶筛选 + 版本号护栏，2026-11-01）
+
+| 项目 | 结果 |
+| --- | --- |
+| `dart analyze` | 0 问题 |
+| `flutter test` | 181/181（新增仅看置顶仓库 ×6、widget ×3、版本护栏 ×3；既有 169 全回归） |
+| Windows Release 构建 | ✅ 经 `C:\wenyue` junction 构建并冒烟通过（标题「文阅」、129MB、响应正常） |
+| 产物版本核验 | ✅ `app.so` 内字符串含 `1.29.0`、不含 `1.9.0` / `1.28.0` |
+
+新增内容：
+
+- **仓库**：`watchAll(pinnedOnly)` 可选参数（null/false = 不过滤，向后兼容），
+  实现为 drift `d.pinned.equals(true)` 附加 where；与 `keyword` 是 **AND** 语义。
+- **UI**：AppBar 新增置顶开关（`Icons.push_pin` / `push_pin_outlined`，
+  选中态主色 + `isSelected`）；`_pinnedOnly` 透传到 `watchAll`。
+- **空态**：无置顶文献时显示专属 `_EmptyPinnedOnly`（不再误显示「书库还是空的」），
+  带「显示全部文献」一键恢复。
+- **导出联动**：`_hasFilter`（关键字 / 标签 / 仅看置顶）控制「导出当前筛选结果」
+  菜单项出现；导出过滤链补 `!_pinnedOnly || d.pinned`。
+- **版本号护栏**：新增 `test/app_info_test.dart`，直接读 `pubspec.yaml` 对拍
+  `kAppVersion`。该测试在编写时**立即抓到** `kAppVersion` 仍是 1.29.0 而
+  pubspec 是 1.28.0 的不一致（先改常量后升 pubspec 的中间态）。
+- **缺陷修复**：`kAppVersion` 自 v1.10.0 起一直停在 `1.9.0`，设置页「关于」
+  显示的版本号落后 20 个版本；本轮改为 `1.29.0` 并由测试锁定。
+- **测试基建**：`AppContainer.forTesting` 新增可选 `libraryRepo` 覆盖参数，
+  供 widget 测试注入同步假仓库（drift 真异步在 fake-async 区不推进）。
+- **版本**：`pubspec.yaml` → `1.29.0+30`。
 
 ## 3.2 第三十轮迭代验收（v1.28.0 书库置顶，2026-11-01）
 

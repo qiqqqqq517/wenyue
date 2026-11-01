@@ -16,6 +16,7 @@ class LibraryRepositoryImpl implements LibraryRepository {
     String keyword = '',
     DocSort sort = DocSort.recent,
     bool ascending = false,
+    bool? pinnedOnly,
   }) {
     final kw = '%${keyword.trim()}%';
     final hasKeyword = keyword.trim().isNotEmpty;
@@ -25,6 +26,9 @@ class LibraryRepositoryImpl implements LibraryRepository {
       query.where(
         (d) => d.title.like(kw) | d.author.like(kw) | d.tags.like(kw),
       );
+    }
+    if (pinnedOnly == true) {
+      query.where((d) => d.pinned.equals(true));
     }
     // 置顶文献排最前，其余按原排序规则（升序切换仅对 title 生效）
     switch (sort) {
