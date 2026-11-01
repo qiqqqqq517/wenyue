@@ -1,6 +1,25 @@
 # 验收记录
 
-> 更新：2026-11-01（第十八轮迭代 v1.16.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+> 更新：2026-11-01（第十九轮迭代 v1.17.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+
+## 2.1 第十九轮迭代验收（v1.17.0 主题对比度护栏，2026-11-01）
+
+| 项目 | 结果 |
+| --- | --- |
+| `dart analyze` | 0 问题 |
+| `flutter test` | 126/126（新增主题护栏 ×10） |
+| Windows Release 构建 | ✅ 经 `C:\wenyue` junction 构建并冒烟通过 |
+
+新增内容：
+
+- **对比度纯函数**（`lib/ui/theme_contrast.dart`）：WCAG 2.x 相对亮度
+  （sRGB 线性化）与对比度计算。
+- **主题回归护栏**（`test/theme_contrast_test.dart` ×10）：明暗两套主题分别断言
+  正文/页面 ≥4.5、AppBar ≥4.5、主色按钮 ≥3.0、卡片分层非同色；深色确实更深；
+  黑白对拍 = 21。
+- 现状核查：lib/ui 无硬编码 `Colors.white/black/grey` 等（全部走 ColorScheme）；
+  Windows 标题栏仅跟随系统注册表（应用内切换不实时刷新标题栏色，记录为已知限制）。
+- **版本**：`pubspec.yaml` → `1.17.0+18`。
 
 ## 2.0 第十八轮迭代验收（v1.16.0 阅读周报导出，2026-11-01）
 
