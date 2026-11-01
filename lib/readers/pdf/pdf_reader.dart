@@ -7,6 +7,7 @@ import 'package:pdfrx_engine/pdfrx_engine.dart' as engine;
 
 import '../../domain/entities/anchors.dart';
 import '../../domain/entities/annotation.dart';
+import '../../ui/theme.dart';
 import '../reader_core.dart';
 
 /// PDF 阅读器：缩放/页面跳转/文本选择/搜索/目录/高亮矩形回显。
@@ -362,8 +363,8 @@ class _PdfSelectionBar extends StatelessWidget {
     if (!visible) return const SizedBox.shrink();
     return Material(
       elevation: 6,
-      borderRadius: BorderRadius.circular(14),
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(AppRadius.menu),
+      color: context.tokens.cardElevated,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         child: Row(

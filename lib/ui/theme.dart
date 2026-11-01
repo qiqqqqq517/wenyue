@@ -80,6 +80,10 @@ class AppTokens extends ThemeExtension<AppTokens> {
     required this.textTertiary,
     required this.accent,
     required this.accentSoft,
+    required this.accentAlt,
+    required this.codeBackground,
+    required this.codeString,
+    required this.codeNumber,
     required this.danger,
     required this.shadow,
     required this.glassVeil,
@@ -120,6 +124,21 @@ class AppTokens extends ThemeExtension<AppTokens> {
   /// 主色淡底（选中态背景）。
   final Color accentSoft;
 
+  /// 主色渐变的第二主色（品牌标、页头渐变用）。
+  ///
+  /// 与 [accent] 同色系但偏移一档色相，构成「蓝 → 靛」的双色渐变；
+  /// 单独成 token 是为了让页面不必自己写死十六进制或去借 M3 的 secondary。
+  final Color accentAlt;
+
+  /// 代码块底色（比 fill 更沉一档，让代码区与正文区分开）。
+  final Color codeBackground;
+
+  /// 代码字符串字面量色（语法高亮语义色，不随主题主色变化）。
+  final Color codeString;
+
+  /// 代码数字字面量色（语法高亮语义色）。
+  final Color codeNumber;
+
   final Color danger;
 
   /// 投影色（通透靠材质分层，投影极淡）。
@@ -153,6 +172,10 @@ class AppTokens extends ThemeExtension<AppTokens> {
     Color? textTertiary,
     Color? accent,
     Color? accentSoft,
+    Color? accentAlt,
+    Color? codeBackground,
+    Color? codeString,
+    Color? codeNumber,
     Color? danger,
     Color? shadow,
     Color? glassVeil,
@@ -175,6 +198,10 @@ class AppTokens extends ThemeExtension<AppTokens> {
       textTertiary: textTertiary ?? this.textTertiary,
       accent: accent ?? this.accent,
       accentSoft: accentSoft ?? this.accentSoft,
+      accentAlt: accentAlt ?? this.accentAlt,
+      codeBackground: codeBackground ?? this.codeBackground,
+      codeString: codeString ?? this.codeString,
+      codeNumber: codeNumber ?? this.codeNumber,
       danger: danger ?? this.danger,
       shadow: shadow ?? this.shadow,
       glassVeil: glassVeil ?? this.glassVeil,
@@ -203,6 +230,10 @@ class AppTokens extends ThemeExtension<AppTokens> {
       textTertiary: mix(textTertiary, other.textTertiary),
       accent: mix(accent, other.accent),
       accentSoft: mix(accentSoft, other.accentSoft),
+      accentAlt: mix(accentAlt, other.accentAlt),
+      codeBackground: mix(codeBackground, other.codeBackground),
+      codeString: mix(codeString, other.codeString),
+      codeNumber: mix(codeNumber, other.codeNumber),
       danger: mix(danger, other.danger),
       shadow: mix(shadow, other.shadow),
       glassVeil: mix(glassVeil, other.glassVeil),
@@ -247,10 +278,15 @@ class AppTheme {
     textPrimary: Color(0xFF000000),
     // systemGray2 —— 压 #F2F2F7 实测 5.0:1
     textSecondary: Color(0xFF636366),
-    // systemGray3 —— 仅用于极弱的辅助信息
-    textTertiary: Color(0xFF8E8E93),
+    // systemGray3 原值 #8E8E93 压代码底仅 2.97（低于 3.0），加深一档到 4.0+
+    textTertiary: Color(0xFF85858A),
     accent: _accentLight,
     accentSoft: Color(0x140066D6),
+    accentAlt: Color(0xFF5856D6),
+    // 代码块：比 fill 略沉，让代码区与正文区分；语法色取高对比变体（压 codeBackground ≥ 4.5）
+    codeBackground: Color(0xFFF4F4F9),
+    codeString: Color(0xFF2E7D32),
+    codeNumber: Color(0xFFA85A00),
     danger: Color(0xFFD70015),
     shadow: Color(0x14000000),
     glassVeil: Color(0x66FFFFFF),
@@ -276,6 +312,11 @@ class AppTheme {
     textTertiary: Color(0xFF7C7C82),
     accent: _accentDark,
     accentSoft: Color(0x290A84FF),
+    accentAlt: Color(0xFF5E5CE6),
+    // 深色代码块：比 card 略抬一档（#1C1C1E → #242428），语法色用高亮变体
+    codeBackground: Color(0xFF242428),
+    codeString: Color(0xFF9CCC65),
+    codeNumber: Color(0xFFFFB74D),
     danger: Color(0xFFFF453A),
     shadow: Color(0x66000000),
     glassVeil: Color(0x1AFFFFFF),

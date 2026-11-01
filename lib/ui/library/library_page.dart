@@ -113,7 +113,7 @@ class _LibraryPageState extends State<LibraryPage> {
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(ctx).colorScheme.error,
+              backgroundColor: ctx.tokens.danger,
             ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('同时删除副本'),
@@ -303,7 +303,7 @@ class _LibraryPageState extends State<LibraryPage> {
                           end: Alignment.bottomRight,
                           colors: [
                             t.accent,
-                            Theme.of(context).colorScheme.secondary,
+                            t.accentAlt,
                           ],
                         ),
                       ),
@@ -707,7 +707,7 @@ class _LibraryPageState extends State<LibraryPage> {
             ListTile(
               leading: Icon(
                 doc.pinned ? Icons.push_pin : Icons.push_pin_outlined,
-                color: doc.pinned ? Theme.of(ctx).colorScheme.primary : null,
+                color: doc.pinned ? ctx.tokens.accent : null,
               ),
               title: Text(doc.pinned ? '取消置顶' : '置顶'),
               onTap: () => Navigator.pop(ctx, 'pin'),
@@ -725,11 +725,11 @@ class _LibraryPageState extends State<LibraryPage> {
             ListTile(
               leading: Icon(
                 Icons.delete_outline,
-                color: Theme.of(ctx).colorScheme.error,
+                color: ctx.tokens.danger,
               ),
               title: Text(
                 '移除',
-                style: TextStyle(color: Theme.of(ctx).colorScheme.error),
+                style: TextStyle(color: ctx.tokens.danger),
               ),
               onTap: () => Navigator.pop(ctx, 'remove'),
             ),
@@ -946,7 +946,7 @@ class _LibraryPageState extends State<LibraryPage> {
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(ctx).colorScheme.error,
+              backgroundColor: ctx.tokens.danger,
             ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('同时删除副本'),

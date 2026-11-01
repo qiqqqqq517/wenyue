@@ -7,6 +7,7 @@ import '../../domain/entities/anchors.dart';
 import '../../domain/entities/annotation.dart';
 import '../../services/text/annotation_guard.dart';
 import '../../services/text/text_document.dart';
+import '../../ui/theme.dart';
 import '../reader_core.dart';
 import 'code_highlighter.dart';
 
@@ -301,8 +302,8 @@ class _SelectionBar extends StatelessWidget {
     if (!visible) return const SizedBox.shrink();
     return Material(
       elevation: 6,
-      borderRadius: BorderRadius.circular(14),
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(AppRadius.menu),
+      color: context.tokens.cardElevated,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         child: Row(
@@ -442,7 +443,8 @@ class _BlockView extends StatelessWidget {
       fontSize: style.fontSize,
       height: style.lineHeight,
       fontFamily: style.fontFamily.isEmpty ? null : style.fontFamily,
-      color: theme.colorScheme.onSurface,
+      color: theme.extension<AppTokens>()?.textPrimary ??
+          AppTheme.tokensOf(theme.brightness).textPrimary,
     );
   }
 
@@ -657,22 +659,18 @@ class _CodeBlockViewState extends State<_CodeBlockView> {
   }
 
   TextStyle _tokenStyle(CodeTokenKind kind, ThemeData theme) {
-    final dark = theme.brightness == Brightness.dark;
+    final t = theme.extension<AppTokens>() ?? AppTheme.tokensOf(theme.brightness);
     return switch (kind) {
       CodeTokenKind.keyword => TextStyle(
-          color: theme.colorScheme.primary,
+          color: t.accent,
           fontWeight: FontWeight.w600,
         ),
-      CodeTokenKind.string => TextStyle(
-          color: dark ? const Color(0xFF9CCC65) : const Color(0xFF2E7D32),
-        ),
+      CodeTokenKind.string => TextStyle(color: t.codeString),
       CodeTokenKind.comment => TextStyle(
-          color: theme.colorScheme.outline,
+          color: t.textTertiary,
           fontStyle: FontStyle.italic,
         ),
-      CodeTokenKind.number => TextStyle(
-          color: dark ? const Color(0xFFFFB74D) : const Color(0xFFB26A00),
-        ),
+      CodeTokenKind.number => TextStyle(color: t.codeNumber),
       CodeTokenKind.plain => const TextStyle(),
     };
   }
@@ -700,14 +698,15 @@ class _CodeBlockViewState extends State<_CodeBlockView> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final t = context.tokens;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(8),
+          color: t.codeBackground,
+          borderRadius: BorderRadius.circular(AppRadius.chip),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -718,7 +717,7 @@ class _CodeBlockViewState extends State<_CodeBlockView> {
                 child: Text(
                   widget.lang!,
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.outline,
+                    color: t.textTertiary,
                   ),
                 ),
               ),
@@ -777,8 +776,8 @@ class _ImageViewState extends State<_ImageView> {
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(8),
+                color: context.tokens.fill,
+                borderRadius: BorderRadius.circular(AppRadius.chip),
               ),
               child: Text(
                 widget.block.isRemote
@@ -934,7 +933,7 @@ class _TableView extends StatelessWidget {
             for (var i = 0; i < block.rows.length; i++)
               TableRow(
                 decoration: i == 0 && block.hasHeader
-                    ? BoxDecoration(color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5))
+                    ? BoxDecoration(color: context.tokens.fill)
                     : null,
                 children: [
                   for (var c = 0; c < colCount; c++)
@@ -974,16 +973,15 @@ class _QuoteView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Container(
         padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
         decoration: BoxDecoration(
           border: Border(
-            left: BorderSide(width: 3.5, color: theme.colorScheme.outlineVariant),
+            left: BorderSide(width: 3.5, color: context.tokens.accent),
           ),
-          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+          color: context.tokens.accentSoft,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1076,7 +1074,6 @@ class _StaticTextBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final runs = switch (block) {
       ParagraphBlock b => b.runs,
       HeadingBlock b => b.runs,
@@ -1136,7 +1133,7 @@ class _StaticTextBlock extends StatelessWidget {
         TextSpan(
           style: TextStyle(
             fontSize: style.fontSize,
-            color: theme.colorScheme.onSurface,
+            color: context.tokens.textPrimary,
           ),
           children: children,
         ),

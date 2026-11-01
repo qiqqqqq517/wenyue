@@ -130,6 +130,31 @@ void main() {
         }
       });
 
+      test('$name：代码块语法色压代码底 ≥ 4.5（WCAG AA）', () {
+        // 代码块是正文的一部分，字符串/数字/注释都必须可读；
+        // 注释允许 3.0（WCAG 对"非必要装饰"的宽容档），另测。
+        final stringRatio = contrastRatio(t.codeString, t.codeBackground);
+        expect(stringRatio, greaterThanOrEqualTo(4.5),
+            reason: '$name codeString/codeBackground = ${stringRatio.toStringAsFixed(2)}');
+
+        final numberRatio = contrastRatio(t.codeNumber, t.codeBackground);
+        expect(numberRatio, greaterThanOrEqualTo(4.5),
+            reason: '$name codeNumber/codeBackground = ${numberRatio.toStringAsFixed(2)}');
+
+        final commentRatio = contrastRatio(t.textTertiary, t.codeBackground);
+        expect(commentRatio, greaterThanOrEqualTo(3.0),
+            reason: '$name 注释/codeBackground = ${commentRatio.toStringAsFixed(2)}');
+
+        // 代码块底色必须与页面底/卡片底可区分，否则代码区没有边界
+        expect(contrastRatio(t.codeBackground, t.pageBackground), greaterThan(1.0),
+            reason: '$name 代码块与页面同色，失去区域感');
+      });
+
+      test('$name：主色与第二主色不同（渐变有实际色差）', () {
+        expect(contrastRatio(t.accent, t.accentAlt), greaterThan(1.0),
+            reason: '$name accent 与 accentAlt 同色，品牌标渐变会退化成纯色');
+      });
+
       test('$name：玻璃边缘高光为亮色、暗边为暗色（光从上方来）', () {
         // rimStrong 是白色系高光（压边提亮），rimWeak 是黑色系暗边（压边压暗）——
         // 判据看亮度方向，不能比 alpha（两者 alpha 含义相反）。

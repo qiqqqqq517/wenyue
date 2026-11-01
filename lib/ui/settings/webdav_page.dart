@@ -172,7 +172,7 @@ class _WebDavPageState extends State<WebDavPage> {
             children: [
               if (report.error != null)
                 Text(report.error!,
-                    style: TextStyle(color: Theme.of(ctx).colorScheme.error)),
+                    style: TextStyle(color: ctx.tokens.danger)),
               Text('推送文献 ${report.pushedDocs} · 拉取文献 ${report.pulledDocs}\n'
                   '拉取批注 ${report.pulledNotes}'),
               if (report.hasConflicts)
