@@ -1,6 +1,24 @@
 # 验收记录
 
-> 更新：2026-11-01（第十五轮迭代 v1.13.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+> 更新：2026-11-01（第十六轮迭代 v1.14.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+
+## 1.8 第十六轮迭代验收（v1.14.0 导入进度反馈，2026-11-01）
+
+| 项目 | 结果 |
+| --- | --- |
+| `dart analyze` | 0 问题 |
+| `flutter test` | 108/108（UI 行为改动，导入服务层逻辑未变，既有覆盖直接适用） |
+| Windows Release 构建 | ✅ 经 `C:\wenyue` junction 构建并冒烟通过 |
+
+新增内容：
+
+- **逐文件导入**：`_pickAndImport` 由一次性批量改为逐文件调用
+  `ImportService.importFiles`（单文件粒度），每文件间 `Future.delayed(Duration.zero)`
+  让出 UI 帧。
+- **底部状态条**：导入中显示旋转指示 + 「n/total · 文件名」+ 线性进度条
+  （`_importStatus` / `_importProgress`），完成后清零隐藏。
+- **失败明细**：汇总 SnackBar 携带逐文件失败信息（`fileName: error`）。
+- **版本**：`pubspec.yaml` → `1.14.0+15`。
 
 ## 1.7 第十五轮迭代验收（v1.13.0 书库批量操作，2026-11-01）
 

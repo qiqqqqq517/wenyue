@@ -31,6 +31,8 @@ class _LibraryPageState extends State<LibraryPage> {
   String _keyword = '';
   DocSort _sort = DocSort.recent;
   bool _importing = false;
+  String _importStatus = ''; // 导入进度文案（如 2/5 · xxx.pdf）
+  double _importProgress = 0; // 0.0 ~ 1.0
   String _viewMode = 'grid';
   final Set<String> _selectedTags = {};
   final Set<String> _multiSelected = {};
@@ -362,6 +364,50 @@ class _LibraryPageState extends State<LibraryPage> {
                 },
               ),
             ),
+            if (_importing)
+              SafeArea(
+                top: false,
+                child: Material(
+                  elevation: 6,
+                  color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2.2),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                _importStatus,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(3),
+                          child: LinearProgressIndicator(
+                            value: _importProgress > 0 ? _importProgress : null,
+                            minHeight: 4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             if (_multiSelectMode)
               SafeArea(
                 top: false,
@@ -454,22 +500,44 @@ class _LibraryPageState extends State<LibraryPage> {
         allowedExtensions: _supportedExtensions,
       );
       if (files.isEmpty) return;
-      final importResult = await _c.importer.importFiles([
-        for (final f in files)
+      // 逐文件导入以显示进度（ImportService.importFiles 本身是循环，但为
+      // 实时反馈这里按单文件粒度调用并在 UI 上更新状态条）。
+      var added = 0;
+      final failures = <String>[];
+      for (var i = 0; i < files.length; i++) {
+        final f = files[i];
+        if (mounted) {
+          setState(() {
+            _importStatus = '${i + 1}/${files.length} · ${f.name}';
+            _importProgress = (i + 1) / files.length;
+          });
+        }
+        // 让出 UI 帧，保证进度条在连续小文件导入时也能刷新
+        await Future<void>.delayed(Duration.zero);
+        final result = await _c.importer.importFiles([
           ImportInput(
             fileName: f.name,
             localPath: f.path,
             readBytes: f.path == null ? () => f.readAsBytes() : null,
           ),
-      ]);
+        ]);
+        added += result.added.length;
+        failures.addAll(
+            [for (final fail in result.failures) '${fail.fileName}: ${fail.error ?? ''}']);
+      }
       if (!mounted) return;
-      final msg = importResult.failures.isEmpty
-          ? '已导入 ${importResult.added.length} 篇文献'
-          : '导入 ${importResult.added.length} 篇，失败 ${importResult.failures.length} 篇'
-              '（${importResult.failures.first.error ?? ''}）';
+      final msg = failures.isEmpty
+          ? '已导入 $added 篇文献'
+          : '导入 $added 篇，失败 ${failures.length} 篇（${failures.first}）';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     } finally {
-      if (mounted) setState(() => _importing = false);
+      if (mounted) {
+        setState(() {
+          _importing = false;
+          _importStatus = '';
+          _importProgress = 0;
+        });
+      }
     }
   }
 
