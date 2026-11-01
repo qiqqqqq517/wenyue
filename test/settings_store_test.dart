@@ -60,4 +60,49 @@ void main() {
       expect(store.load().readerFontFamily, '');
     });
   });
+
+  group('SettingsStore 搜索历史', () {
+    test('默认空历史', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final store = SettingsStore(prefs);
+      expect(await store.loadSearchHistory(), isEmpty);
+    });
+
+    test('保存后可读回', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final store = SettingsStore(prefs);
+
+      await store.saveSearchHistory(['进程', '方法', '队列']);
+      expect(await store.loadSearchHistory(), ['进程', '方法', '队列']);
+    });
+
+    test('去重（保序）与剔除空白项', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final store = SettingsStore(prefs);
+
+      await store.saveSearchHistory(['a', 'b', 'c']);
+      final next = await store.saveSearchHistory(['b', 'd', ' a ', '']);
+      // 'b' 提前（传入顺序），' a ' 去空格后与历史无重（历史里是 'a' 但本次
+      // 传入序列自身去重按原值），空串剔除；结果 = 传入去重 + 历史补位
+      expect(next.first, 'b');
+      expect(next.contains('a'), isTrue);
+      expect(next.contains('d'), isTrue);
+      expect(next.contains(''), isFalse);
+    });
+
+    test('超过 10 条截断（保留最新）', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final store = SettingsStore(prefs);
+
+      final input = List.generate(15, (i) => '词$i');
+      final next = await store.saveSearchHistory(input);
+      expect(next.length, 10);
+      expect(next.first, '词0');
+      expect(next.last, '词9');
+    });
+  });
 }

@@ -102,6 +102,27 @@ class SettingsStore {
     return load();
   }
 
+  /// 搜索历史（最近优先，去重，最多 10 条；跨文档共享）。
+  static const _kSearchHistory = 'reader.searchHistory';
+  static const _kSearchHistoryMax = 10;
+
+  Future<List<String>> loadSearchHistory() async =>
+      _prefs.getStringList(_kSearchHistory) ?? const [];
+
+  Future<List<String>> saveSearchHistory(List<String> history) async {
+    // 去重（保持顺序）并截断到上限
+    final seen = <String>{};
+    final next = <String>[];
+    for (final h in history) {
+      final t = h.trim();
+      if (t.isEmpty || !seen.add(t)) continue;
+      next.add(t);
+      if (next.length >= _kSearchHistoryMax) break;
+    }
+    await _prefs.setStringList(_kSearchHistory, next);
+    return next;
+  }
+
   Future<WebDavConfig> loadWebDavConfig() async => WebDavConfig(
         serverUrl: _prefs.getString(_kDavUrl) ?? '',
         username: _prefs.getString(_kDavUser) ?? '',

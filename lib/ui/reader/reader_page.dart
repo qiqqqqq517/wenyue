@@ -70,6 +70,7 @@ class _ReaderPageState extends State<ReaderPage> {
       if (!mounted) return;
       setState(() => _annotations = list);
     });
+    _loadSearchHistory();
   }
 
    @override
@@ -299,6 +300,32 @@ class _ReaderPageState extends State<ReaderPage> {
   bool _searching = false;
   final TextEditingController _searchController = TextEditingController();
 
+  /// 搜索历史（最近优先，去重，跨文档共享）。
+  List<String> _searchHistory = const [];
+
+  Future<void> _loadSearchHistory() async {
+    try {
+      final raw = await _c.settings.loadSearchHistory();
+      if (!mounted) return;
+      setState(() => _searchHistory = raw);
+    } catch (_) {
+      // 历史加载失败不阻塞搜索
+    }
+  }
+
+  Future<void> _rememberSearch(String query) async {
+    if (query.trim().isEmpty) return;
+    final next = <String>[query.trim(), ..._searchHistory.where((h) => h != query.trim())]
+        .take(10)
+        .toList();
+    setState(() => _searchHistory = next);
+    try {
+      await _c.settings.saveSearchHistory(next);
+    } catch (_) {
+      // 持久化失败不影响本次会话
+    }
+  }
+
   void _closeSearch() {
     setState(() {
       _searchOpen = false;
@@ -321,6 +348,7 @@ class _ReaderPageState extends State<ReaderPage> {
     if (handle == null || query.trim().isEmpty) return;
     setState(() => _searching = true);
     _searchQuery = query.trim();
+    await _rememberSearch(_searchQuery);
     final hits = await handle.search(_searchQuery);
     if (!mounted) return;
     setState(() {
@@ -619,6 +647,7 @@ class _ReaderPageState extends State<ReaderPage> {
                     currentIndex: _searchIndex,
                     searching: _searching,
                     query: _searchQuery,
+                    history: _searchHistory,
                     onSubmit: _runSearch,
                     onPrev: () => _gotoHit((_searchIndex - 1).clamp(0, _searchHits.length - 1)),
                     onNext: () => _gotoHit((_searchIndex + 1).clamp(0, _searchHits.length - 1)),
@@ -909,6 +938,7 @@ class _SearchPanel extends StatelessWidget {
     required this.onNext,
     required this.onJumpAt,
     required this.onClose,
+    this.history = const [],
   });
 
   final TextEditingController controller;
@@ -921,6 +951,7 @@ class _SearchPanel extends StatelessWidget {
   final VoidCallback onNext;
   final void Function(int index) onJumpAt;
   final VoidCallback onClose;
+  final List<String> history;
 
   @override
   Widget build(BuildContext context) {
@@ -976,6 +1007,25 @@ class _SearchPanel extends StatelessWidget {
               ],
             ),
             if (searching) const LinearProgressIndicator(minHeight: 2),
+            if (history.isNotEmpty && query.isEmpty && hits.isEmpty)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: -6,
+                  children: [
+                    for (final h in history)
+                      ActionChip(
+                        label: Text(h, style: theme.textTheme.labelSmall),
+                        tooltip: '搜索「$h」',
+                        onPressed: () {
+                          controller.text = h;
+                          onSubmit(h);
+                        },
+                      ),
+                  ],
+                ),
+              ),
             if (hits.isNotEmpty)
               ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 180),

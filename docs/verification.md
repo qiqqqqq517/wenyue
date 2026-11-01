@@ -1,6 +1,27 @@
 # 验收记录
 
-> 更新：2026-11-01（第十六轮迭代 v1.14.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+> 更新：2026-11-01（第十七轮迭代 v1.15.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+
+## 1.9 第十七轮迭代验收（v1.15.0 文内搜索历史，2026-11-01）
+
+| 项目 | 结果 |
+| --- | --- |
+| `dart analyze` | 0 问题 |
+| `flutter test` | 112/112（新增搜索历史存储 ×4） |
+| Windows Release 构建 | ✅ 经 `C:\wenyue` junction 构建并冒烟通过 |
+
+新增内容：
+
+- **搜索历史存储**（`SettingsStore.loadSearchHistory/saveSearchHistory`）：
+  SharedPreferences `reader.searchHistory`，去重保序、剔除空白、上限 10 条。
+- **阅读器接入**：`_runSearch` 成功路径记录历史；搜索面板空态（无输入无命中）
+  显示历史 ActionChips，点击填入并立即搜索；加载/持久化失败静默降级。
+- **单测 ×4**：默认空、读回、去重保序与空白剔除、超限截断。
+- **版本**：`pubspec.yaml` → `1.15.0+16`。
+
+备注：过程中出现两处首版缺陷均已修复——reader_page 重复 initState（analyze 捕获）、
+历史去重测试预期与实现语义不符（saveSearchHistory 保序不置顶，置顶在调用方）。
+shortcuts_help widget 测试一次 "did not complete" 为环境偶发，复跑全绿。
 
 ## 1.8 第十六轮迭代验收（v1.14.0 导入进度反馈，2026-11-01）
 
