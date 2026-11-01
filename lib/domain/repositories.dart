@@ -67,10 +67,16 @@ abstract interface class LibraryRepository {
 /// 支持按文档查询、实时监听、冲突管理等功能。
 abstract interface class AnnotationRepository {
   /// 监听指定文档的所有活跃批注，数据变更时自动推送。
-  Stream<List<Annotation>> watchByDoc(String documentId);
+  ///
+  /// [kinds] 非空时仅推送指定类型（null/空 = 全部类型）。
+  Stream<List<Annotation>> watchByDoc(String documentId,
+      {Set<AnnotationKind>? kinds});
 
   /// 一次性获取指定文档的所有活跃批注。
-  Future<List<Annotation>> byDoc(String documentId);
+  ///
+  /// [kinds] 非空时仅返回指定类型（null/空 = 全部类型）。
+  Future<List<Annotation>> byDoc(String documentId,
+      {Set<AnnotationKind>? kinds});
 
   /// 获取所有批注（含已删除），用于同步合并。
   Future<List<Annotation>> getAllIncludingDeleted();

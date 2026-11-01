@@ -21,18 +21,29 @@ class AnnotationRepositoryImpl implements AnnotationRepository {
         );
 
   @override
-  Stream<List<Annotation>> watchByDoc(String documentId) {
+  Stream<List<Annotation>> watchByDoc(String documentId,
+      {Set<AnnotationKind>? kinds}) {
     final q = _baseQuery()
       ..where((a) => a.documentId.equals(documentId))
       ..orderBy([(a) => OrderingTerm.asc(a.createdAt)]);
+    if (kinds != null && kinds.isNotEmpty) {
+      // drift 表的 kind 列存枚举索引（int）
+      final indices = kinds.map((k) => k.index).toList();
+      q.where((a) => a.kind.isIn(indices));
+    }
     return q.watch().map((rows) => rows.map(Mappers.noteFromRow).toList());
   }
 
   @override
-  Future<List<Annotation>> byDoc(String documentId) async {
+  Future<List<Annotation>> byDoc(String documentId,
+      {Set<AnnotationKind>? kinds}) async {
     final q = _baseQuery()
       ..where((a) => a.documentId.equals(documentId))
       ..orderBy([(a) => OrderingTerm.asc(a.createdAt)]);
+    if (kinds != null && kinds.isNotEmpty) {
+      final indices = kinds.map((k) => k.index).toList();
+      q.where((a) => a.kind.isIn(indices));
+    }
     final rows = await q.get();
     return rows.map(Mappers.noteFromRow).toList();
   }

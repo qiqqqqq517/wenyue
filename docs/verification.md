@@ -1,6 +1,25 @@
 # 验收记录
 
-> 更新：2026-11-01（第二十五轮迭代 v1.23.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+> 更新：2026-11-01（第二十六轮迭代 v1.24.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+
+## 2.8 第二十六轮迭代验收（v1.24.0 批注按类型筛选，2026-11-01）
+
+| 项目 | 结果 |
+| --- | --- |
+| `dart analyze` | 0 问题 |
+| `flutter test` | 155/155（新增批注筛选仓库测试 ×5） |
+| Windows Release 构建 | ✅ 经 `C:\wenyue` junction 构建并冒烟通过 |
+
+新增内容：
+
+- **接口扩展**：`AnnotationRepository.byDoc/watchByDoc` 新增可选 `kinds`
+  （`Set<AnnotationKind>?`，null/空 = 全部，向后兼容）。
+- **实现**：drift `kind.isIn(indices)` 按枚举索引查询（表列存 int 而非 name，
+  首版用 name 报类型错误由 analyze 捕获）。
+- **批注侧栏**：底部类型筛选 chips（全部/高亮/笔记/书签，OR 语义实时过滤），
+  底单通过 `_showAnnotations` 传入 `kinds` 查询。
+- **测试 ×5**：全类型/单类型/多类型 OR/空集合不过滤/watch 实时推送。
+- **版本**：`pubspec.yaml` → `1.24.0+25`。
 
 ## 2.7 第二十五轮迭代验收（v1.23.0 批注引用保护，2026-11-01）
 
