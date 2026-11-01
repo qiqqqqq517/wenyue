@@ -1,6 +1,24 @@
 # 验收记录
 
-> 更新：2026-11-01（第二十八轮迭代 v1.26.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+> 更新：2026-11-01（第二十九轮迭代 v1.27.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+
+## 3.1 第二十九轮迭代验收（v1.27.0 书库筛选结果导出，2026-11-01）
+
+| 项目 | 结果 |
+| --- | --- |
+| `dart analyze` | 0 问题 |
+| `flutter test` | 163/163（UI 级导出菜单改动，既有测试全数回归通过） |
+| Windows Release 构建 | ✅ 经 `C:\wenyue` junction 构建并冒烟通过 |
+
+新增内容：
+
+- **筛选结果导出**：有搜索关键字或标签筛选时，导出菜单自动出现
+  「导出当前筛选结果（CSV）」（无筛选时隐藏，避免与全量导出重复）。
+- **过滤语义一致**：复用列表展示逻辑——关键字匹配标题/作者（null 安全）/标签
+  contains + 标签 OR；导出后 SnackBar 带数量反馈「已导出 N 篇」。
+- **CSV**：复用 `NotesExporter.exportLibraryCsv` + UTF-8 BOM。
+- 首版 `d.author.contains` 未判空（author 可为 null）由 analyze 捕获后加 null 检查。
+- **版本**：`pubspec.yaml` → `1.27.0+28`。
 
 ## 3.0 第二十八轮迭代验收（v1.26.0 批注删除确认，2026-11-01）
 

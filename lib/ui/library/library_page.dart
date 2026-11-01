@@ -326,10 +326,15 @@ class _LibraryPageState extends State<LibraryPage> {
               onSelected: (v) {
                 if (v == 'notes') _exportAllNotes();
                 if (v == 'csv') _exportLibraryCsv();
+                if (v == 'filtered_csv') _exportFilteredCsv();
               },
-              itemBuilder: (context) => const [
-                PopupMenuItem(value: 'notes', child: Text('导出全部批注（Markdown）')),
-                PopupMenuItem(value: 'csv', child: Text('导出书库清单（CSV）')),
+              itemBuilder: (context) => [
+                const PopupMenuItem(value: 'notes', child: Text('导出全部批注（Markdown）')),
+                const PopupMenuItem(value: 'csv', child: Text('导出书库清单（CSV）')),
+                // 有筛选/搜索时才提供按结果导出
+                if (_keyword.isNotEmpty || _selectedTags.isNotEmpty)
+                  const PopupMenuItem(
+                      value: 'filtered_csv', child: Text('导出当前筛选结果（CSV）')),
               ],
             ),
             IconButton(
@@ -784,6 +789,41 @@ class _LibraryPageState extends State<LibraryPage> {
   }
 
   String _stamp() => DateTime.now().toIso8601String().substring(0, 10);
+
+  /// 导出当前筛选/搜索结果为 CSV（复用 library_filter 纯函数语义）。
+  Future<void> _exportFilteredCsv() async {
+    final docs = await _c.libraryRepo.getAllIncludingDeleted();
+    final active = docs.where((d) => d.deletedAt == null).toList();
+    // 与列表展示一致的过滤：关键字（标题/作者/标签）+ 标签 OR
+    final filtered = active
+        .where((d) =>
+            _keyword.isEmpty ||
+            d.title.contains(_keyword) ||
+            (d.author?.contains(_keyword) ?? false) ||
+            d.tags.any((t) => t.contains(_keyword)))
+        .where((d) =>
+            _selectedTags.isEmpty ||
+            _selectedTags.any((t) => d.tags.contains(t)))
+        .toList();
+    if (filtered.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('当前筛选结果为空')),
+        );
+      }
+      return;
+    }
+    final csv = NotesExporter.exportLibraryCsv(filtered);
+    final saved = await FilePicker.saveFile(
+      fileName: '文阅筛选结果-${_stamp()}.csv',
+      bytes: Uint8List.fromList(utf8.encode('\uFEFF$csv')),
+    );
+    if (saved != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已导出 ${filtered.length} 篇到 $saved')),
+      );
+    }
+  }
 
   Future<void> _removeDoc(LibraryDoc doc) async {
     final alsoDelete = await showDialog<bool>(
