@@ -80,10 +80,11 @@ class ShortcutsHelpDialog extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 12, bottom: 6),
                   child: Text(
                     group.title,
+                    // Hallmark Floor 67：分组标签不追字距（正文同字族、小一档即可）
                     style: text.labelMedium?.copyWith(
                       color: t.textSecondary,
                       fontWeight: FontWeight.w600,
-                      letterSpacing: 0.6,
+                      letterSpacing: 0,
                     ),
                   ),
                 ),

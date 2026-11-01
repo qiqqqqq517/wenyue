@@ -574,16 +574,19 @@ class SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
+    // Hallmark Floor 67：分组标题不做大写、不加字距。
+    // 「小号 + 全大写 + 字距拉开」是最典型的机器排版 tell；
+    // 正文同字族、小一档、句首大写、不追字距，说的是同一件事，且不像模板。
     final style = Theme.of(context).textTheme.labelMedium?.copyWith(
           color: t.textSecondary,
           fontWeight: FontWeight.w600,
-          letterSpacing: 0.6,
+          letterSpacing: 0,
         );
     return Padding(
       padding: padding,
       child: Row(
         children: [
-          Text(title.toUpperCase(), style: style),
+          Text(title, style: style),
           const Spacer(),
           ?trailing,
         ],

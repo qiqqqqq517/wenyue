@@ -236,10 +236,15 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('SectionHeader 大写渲染标题', (tester) async {
-      await tester.pumpWidget(host(const SectionHeader('appearance')));
+    testWidgets('SectionHeader 按原样渲染标题（不转大写、不追字距）', (tester) async {
+      // Hallmark Floor 54/67：分组标题不做 tracked-caps。
+      // 曾用 `title.toUpperCase()` + letterSpacing 0.6，是机器排版最典型的 tell。
+      // 用英文串才能验证大写转换（中文没有大小写，转不转都一样）。
+      await tester.pumpWidget(host(const SectionHeader('Appearance')));
       await tester.pump();
-      expect(find.text('APPEARANCE'), findsOneWidget);
+      expect(find.text('Appearance'), findsOneWidget);
+      expect(find.text('APPEARANCE'), findsNothing);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('GlassPill 渲染标签与可选图标', (tester) async {

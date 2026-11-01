@@ -30,19 +30,34 @@
 > · 第三十轮：2026-11-01（v1.28.0 书库置顶）
 > · 第三十一轮：2026-11-01（v1.29.0 仅看置顶筛选 + 版本号护栏）
 > · 第三十二轮：2026-11-01（v1.30.0 通透 UI 改版：iOS 26 / Liquid Glass 设计语言）
+> · 第三十三轮：2026-11-01（v1.31.0 正文层令牌化补全 + 取色纪律机器护栏）
+> · 第三十四轮：2026-11-01（v1.32.0 反「机器味」审计：引入 Hallmark Floor 硬底线）
 > 本文档面向下一位开发者（或下一次会话），目标是 5 分钟内恢复全部上下文。
 
 ---
 
 ## 1. 一句话现状
 
-**代码全部完成且质量达标**（`dart analyze` 0 问题、`flutter test` 239/239 通过）。
+**代码全部完成且质量达标**（`dart analyze lib test` 0 问题、`flutter test` 256/256 通过）。
+第三十四轮（v1.32.0）**引入 Hallmark Floor 反「机器味」硬底线**：参考
+[Hallmark](https://github.com/Nutlope/hallmark)（专抓「一眼就是 AI 做的」的判据集），
+把其中**可移植到 Dart 的条款**改写成 `test/hallmark_floor_test.dart`（7 例），
+并按判据**实际修掉 3 处真实违规**：① 品牌标用了蓝→紫渐变（Hallmark 2a 点名禁止）；
+② `SectionHeader` 与快捷键帮助分组标题用了 `toUpperCase()` + `letterSpacing 0.6`
+（Hallmark 54/67 的 tracked-caps）；③ 文献行列 meta 用 `.join(' · ')` 拼模板串
+（Hallmark 63 模板标点）。判据含阴性对照，并单独验证「负字距不被正字距判据误伤」。
+第三十三轮（v1.31.0）**补全阅读正文层令牌化并立机器护栏**：上一轮 v1.30.0 漏掉了
+阅读器正文层（`text_doc_view.dart` / `pdf_reader.dart`），本轮新增
+`test/theme_discipline_test.dart` 扫描 lib/ 全部 dart 文件，断言除白名单外
+零 `Color(0x…)`、零 `colorScheme.`、零 M3 容器色；该护栏**首跑即抓出 13 处漏网**
+并全部修完。令牌扩充 `accentAlt` / `codeBackground` / `codeString` / `codeNumber`。
+新测试还抓出浅色档 `textTertiary` 压代码底仅 2.97:1（低于 WCAG 3.0），已加深至 `#85858A`。
 第三十二轮（v1.30.0）完成**通透 UI 改版**：把全应用从 Material 3 默认紫种子色迁到
 iOS 26 / Liquid Glass 设计语言 —— 新增 `AppTokens` 语义令牌体系（明暗两套、
 `ThemeExtension` 注入）+ `lib/ui/widgets/glass.dart` 材质组件库（`AmbientBackdrop`
 环境光背板 / `GlassCard` 边缘光学卡片 / `GlassBar` 真模糊悬浮条 / `GlassPanel`
 玻璃弹层 / `GlassAppBar` 顶栏），书库、阅读器、设置、统计、WebDAV、快捷键帮助
-六个页面全部改版；新增 58 例设计令牌与组件回归测试（37 + 17 + 4）。
+六个页面全部改版。
 第三十一轮（v1.29.0）完成**书库「仅看置顶」筛选**：`watchAll(pinnedOnly)` 仓库参数
 （与关键字 AND 组合）、AppBar 置顶开关（选中态主色高亮）、无置顶专属空态、
 筛选结果导出联动；同时新增**版本号单一来源护栏测试**，修复 `kAppVersion`
@@ -55,7 +70,9 @@ Windows 构建从 `C:\wenyue` junction 进行（原路径中文导致 Release AO
 | --- | --- | --- |
 | 领域/数据/服务/阅读器/UI 五层代码 | ✅ 完成 | 分层架构，见 §4 |
 | `dart analyze` | ✅ 0 问题 | 注意：中文路径下只能用 `dart analyze`，`flutter analyze` 会崩 |
-| `flutter test` | ✅ 239/239 | 在 v1.29.0 的 181 例基础上 + 设计令牌 37 + 玻璃组件 17 + 页面冒烟 4 |
+| `flutter test` | ✅ 256/256 | v1.29.0 的 181 + 设计令牌 41 + 玻璃组件 17 + 页面冒烟 4 + 取色纪律 6 + Hallmark Floor 7 |
+| 取色纪律护栏 | ✅ 新增（v1.31.0） | `test/theme_discipline_test.dart` 扫描 lib/ 全部 dart，除白名单外禁止 `Color(0x…)` / `colorScheme.` / M3 容器色 |
+| 反「机器味」护栏 | ✅ 新增（v1.32.0） | `test/hallmark_floor_test.dart` 移植 Hallmark Floor 可移植条款：禁蓝紫渐变 / 禁 tracked-caps / 禁中圆点模板标点 / 禁 emoji 当图标 |
 | 通透 UI 设计语言 | ✅ 新增（v1.30.0） | `lib/ui/theme.dart` 令牌 + `lib/ui/widgets/glass.dart` 材质库；规范见 `docs/design-tokens.md` |
 | 统计周报 | ✅ 新增（v1.12.0） | 周环比（本周/上周，上周 0 → null）+ 最活跃日卡 |
 | 书库批量操作 | ✅ 新增（v1.13.0） | 长按进入多选；批量移除（软删/可选删副本）与批量加标签（追加） |

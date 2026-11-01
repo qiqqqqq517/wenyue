@@ -293,19 +293,14 @@ class _LibraryPageState extends State<LibraryPage> {
               : Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
+                    // 品牌标：单一锚色实底（Hallmark Floor 2a 禁止蓝→紫渐变——
+                    // 那是「机器做的页面」最典型的tell）。形体交给圆角与图标本身。
                     Container(
                       width: 26,
                       height: 26,
                       decoration: BoxDecoration(
+                        color: t.accent,
                         borderRadius: BorderRadius.circular(8),
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            t.accent,
-                            t.accentAlt,
-                          ],
-                        ),
                       ),
                       child: const Icon(
                         Icons.auto_stories,
@@ -1096,12 +1091,12 @@ class _DocListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.tokens;
     final text = Theme.of(context).textTheme;
-    final meta = <String>[
+    // Hallmark Floor 63：不用中圆点把 meta 串起来（`A · B · C` 是模板标点）。
+    // 改为「格式徽标 + 作者」两段，其余信息交给排版位置与留白。
+    final byline = [
       doc.format.label,
       if (doc.author?.isNotEmpty == true) doc.author!,
-      if (doc.tags.isNotEmpty) doc.tags.join(' · '),
-      doc.lastOpenedAt != null ? '读过 ${Fmt.date(doc.lastOpenedAt)}' : '未读',
-    ].join(' · ');
+    ].join('  ');
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -1134,7 +1129,7 @@ class _DocListTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      meta,
+                      byline,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: text.labelSmall?.copyWith(color: t.textSecondary),
