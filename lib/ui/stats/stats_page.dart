@@ -1,6 +1,10 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'dart:convert';
 
 import '../../di/app_container.dart';
+import '../../services/stats/reading_report_exporter.dart';
 import '../../services/stats/reading_stats_service.dart';
 
 /// 阅读统计页：累计时长 / 今日 / 连续天数 / 近 7 日分布 / 常读文献。
@@ -36,6 +40,38 @@ class _StatsPageState extends State<StatsPage> {
     return _StatsData(summary: summary, titles: titles);
   }
 
+  /// 导出本周阅读周报（Markdown）。
+  Future<void> _exportWeekly() async {
+    try {
+      final data = await _future;
+      if (data == null || !mounted) return;
+      final md = ReadingReportExporter.exportWeeklyReport(
+        data.summary,
+        DateTime.now(),
+        docTitles: data.titles,
+      );
+      final now = DateTime.now();
+      final stamp =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      final saved = await FilePicker.saveFile(
+        fileName: '文阅阅读周报-$stamp.md',
+        bytes: Uint8List.fromList(utf8.encode(md)),
+      );
+      await Clipboard.setData(ClipboardData(text: md));
+      if (saved != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('周报已导出到 $saved（内容同时已复制到剪贴板）')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('周报导出失败：$e')),
+        );
+      }
+    }
+  }
+
   Future<void> _reset() async {
     final ok = await showDialog<bool>(
       context: context,
@@ -66,6 +102,11 @@ class _StatsPageState extends State<StatsPage> {
       appBar: AppBar(
         title: const Text('阅读统计'),
         actions: [
+          IconButton(
+            tooltip: '导出周报（Markdown）',
+            onPressed: _exportWeekly,
+            icon: const Icon(Icons.ios_share),
+          ),
           IconButton(
             tooltip: '重置统计',
             onPressed: _reset,
