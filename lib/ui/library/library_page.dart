@@ -33,6 +33,8 @@ class _LibraryPageState extends State<LibraryPage> {
   bool _importing = false;
   String _viewMode = 'grid';
   final Set<String> _selectedTags = {};
+  final Set<String> _multiSelected = {};
+  bool _multiSelectMode = false;
 
   AppContainer get _c => widget.container;
 
@@ -42,6 +44,134 @@ class _LibraryPageState extends State<LibraryPage> {
   void initState() {
     super.initState();
     _viewMode = _c.settings.load().libraryView;
+  }
+
+  void _toggleMultiSelect(String id) {
+    setState(() {
+      if (!_multiSelectMode) {
+        _multiSelectMode = true;
+        _multiSelected.clear();
+      }
+      if (!_multiSelected.add(id)) _multiSelected.remove(id);
+    });
+  }
+
+  void _exitMultiSelect() {
+    setState(() {
+      _multiSelectMode = false;
+      _multiSelected.clear();
+    });
+  }
+
+  /// 批量删除：软删批注与条目，可选同时删除副本文件。
+  Future<void> _multiDelete() async {
+    final ids = _multiSelected.toList();
+    if (ids.isEmpty) return;
+    final alsoDelete = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('移除 ${ids.length} 篇文献'),
+        content: const Text('批注记录将一并移除。\n\n'
+            '选择"仅移除条目"保留副本文件。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, null),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('仅移除条目'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('同时删除副本'),
+          ),
+        ],
+      ),
+    );
+    if (alsoDelete == null) return;
+    for (final id in ids) {
+      final notes = await _c.annotationRepo.byDoc(id);
+      for (final n in notes) {
+        await _c.annotationRepo.delete(n.id);
+      }
+      final removed = await _c.libraryRepo.softDelete(id);
+      if (alsoDelete && removed != null) {
+        try {
+          await _c.fileStore.remove(removed.fileName);
+        } catch (_) {
+          // 副本删除失败不阻塞条目移除
+        }
+      }
+    }
+    _exitMultiSelect();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已移除 ${ids.length} 篇文献')),
+      );
+    }
+  }
+
+  /// 批量打标签：追加到所选文献（不覆盖已有标签）。
+  Future<void> _multiAddTag() async {
+    final ids = _multiSelected.toList();
+    if (ids.isEmpty) return;
+    final tag = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        final controller = TextEditingController();
+        return AlertDialog(
+          title: Text('为 ${ids.length} 篇文献添加标签'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: const InputDecoration(hintText: '标签名称'),
+            onSubmitted: (v) => Navigator.pop(ctx, v),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+              child: const Text('添加'),
+            ),
+          ],
+        );
+      },
+    );
+    if (tag == null || tag.isEmpty) return;
+    for (final id in ids) {
+      final doc = await _c.libraryRepo.getById(id);
+      if (doc == null || doc.tags.contains(tag)) continue;
+      await _c.libraryRepo.update(LibraryDoc(
+        id: doc.id,
+        title: doc.title,
+        author: doc.author,
+        format: doc.format,
+        fileName: doc.fileName,
+        fileSize: doc.fileSize,
+        tags: [...doc.tags, tag],
+        lastPositionJson: doc.lastPositionJson,
+        progress: doc.progress,
+        addedAt: doc.addedAt,
+        lastOpenedAt: doc.lastOpenedAt,
+        updatedAt: DateTime.now(),
+        deletedAt: doc.deletedAt,
+        contentHash: doc.contentHash,
+        sourcePath: doc.sourcePath,
+      ));
+    }
+    _exitMultiSelect();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已为所选文献添加标签「$tag」')),
+      );
+    }
   }
 
   Future<void> _toggleView() async {
@@ -64,7 +194,9 @@ class _LibraryPageState extends State<LibraryPage> {
         separatorBuilder: (_, _) => const Divider(height: 1),
         itemBuilder: (context, i) => _DocListTile(
           doc: docs[i],
-          onOpen: _openDoc,
+          onOpen: _multiSelectMode
+              ? (_) => _toggleMultiSelect(docs[i].id)
+              : _openDoc,
           onMenu: _showDocMenu,
         ),
       );
@@ -81,8 +213,18 @@ class _LibraryPageState extends State<LibraryPage> {
             mainAxisSpacing: 10,
           ),
           itemCount: docs.length,
-          itemBuilder: (context, i) =>
-              _DocCard(doc: docs[i], onOpen: _openDoc, onMenu: _showDocMenu),
+          itemBuilder: (context, i) => _DocCard(
+            doc: docs[i],
+            onOpen: _multiSelectMode
+                ? (_) => _toggleMultiSelect(docs[i].id)
+                : _openDoc,
+            onMenu: _multiSelectMode
+                ? (_) => _toggleMultiSelect(docs[i].id)
+                : _showDocMenu,
+            selected: _multiSelectMode
+                ? _multiSelected.contains(docs[i].id)
+                : null,
+          ),
         );
       },
     );
@@ -104,7 +246,16 @@ class _LibraryPageState extends State<LibraryPage> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('文阅'),
+          title: Text(_multiSelectMode
+              ? '已选 ${_multiSelected.length} 篇'
+              : '文阅'),
+          leading: _multiSelectMode
+              ? IconButton(
+                  tooltip: '退出多选',
+                  onPressed: _exitMultiSelect,
+                  icon: const Icon(Icons.close),
+                )
+              : null,
           actions: [
             IconButton(
               tooltip: '导入文献（Ctrl+O）',
@@ -171,40 +322,82 @@ class _LibraryPageState extends State<LibraryPage> {
             ),
           ],
         ),
-        body: StreamBuilder<List<LibraryDoc>>(
-          stream: _c.libraryRepo.watchAll(keyword: _keyword, sort: _sort),
-          builder: (context, snap) {
-            final all = snap.data ?? const <LibraryDoc>[];
-            if (snap.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (all.isEmpty) {
-              return _EmptyLibrary(
-                keyword: _keyword,
-                onImport: _importing ? null : _pickAndImport,
-              );
-            }
-            final tags = collectTags(all);
-            final docs = filterByTags(all, _selectedTags);
-            return Column(
-              children: [
-                if (tags.isNotEmpty)
-                  _TagFilterBar(
-                    tags: tags.toList(),
-                    selected: _selectedTags,
-                    onToggle: _toggleTag,
-                    onClear: () => setState(_selectedTags.clear),
-                  ),
-                Expanded(
-                  child: docs.isEmpty
-                      ? _EmptyFiltered(
+        body: Column(
+          children: [
+            Expanded(
+              child: StreamBuilder<List<LibraryDoc>>(
+                stream:
+                    _c.libraryRepo.watchAll(keyword: _keyword, sort: _sort),
+                builder: (context, snap) {
+                  final all = snap.data ?? const <LibraryDoc>[];
+                  if (snap.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (all.isEmpty) {
+                    return _EmptyLibrary(
+                      keyword: _keyword,
+                      onImport: _importing ? null : _pickAndImport,
+                    );
+                  }
+                  final tags = collectTags(all);
+                  final docs = filterByTags(all, _selectedTags);
+                  return Column(
+                    children: [
+                      if (tags.isNotEmpty && !_multiSelectMode)
+                        _TagFilterBar(
+                          tags: tags.toList(),
+                          selected: _selectedTags,
+                          onToggle: _toggleTag,
                           onClear: () => setState(_selectedTags.clear),
-                        )
-                      : _buildDocsView(docs),
+                        ),
+                      Expanded(
+                        child: docs.isEmpty
+                            ? _EmptyFiltered(
+                                onClear: () => setState(_selectedTags.clear),
+                              )
+                            : _buildDocsView(docs),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+            if (_multiSelectMode)
+              SafeArea(
+                top: false,
+                child: Material(
+                  elevation: 6,
+                  color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
+                    child: Row(
+                      children: [
+                        Text('已选 ${_multiSelected.length} 篇'),
+                        const Spacer(),
+                        TextButton.icon(
+                          onPressed:
+                              _multiSelected.isEmpty ? null : _multiAddTag,
+                          icon: const Icon(Icons.label_outline, size: 18),
+                          label: const Text('加标签'),
+                        ),
+                        const SizedBox(width: 8),
+                        FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor:
+                                Theme.of(context).colorScheme.error,
+                          ),
+                          onPressed:
+                              _multiSelected.isEmpty ? null : _multiDelete,
+                          icon: const Icon(Icons.delete_outline, size: 18),
+                          label: const Text('移除'),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ],
-            );
-          },
+              ),
+          ],
         ),
       ),
     );
@@ -729,11 +922,19 @@ class _EmptyLibrary extends StatelessWidget {
 // ---------------- 文献卡片 ----------------
 
 class _DocCard extends StatelessWidget {
-  const _DocCard({required this.doc, required this.onOpen, required this.onMenu});
+  const _DocCard({
+    required this.doc,
+    required this.onOpen,
+    required this.onMenu,
+    this.selected,
+  });
 
   final LibraryDoc doc;
   final void Function(LibraryDoc) onOpen;
   final void Function(LibraryDoc) onMenu;
+
+  /// 多选模式下是否被选中（null = 非多选模式）。
+  final bool? selected;
 
   IconData get _icon => switch (doc.format) {
         DocFormat.pdf => Icons.picture_as_pdf_outlined,
@@ -745,8 +946,16 @@ class _DocCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isSelected = selected == true;
     return Card(
       clipBehavior: Clip.antiAlias,
+      shape: isSelected
+          ? RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                  color: theme.colorScheme.primary, width: 2),
+            )
+          : null,
       child: InkWell(
         onTap: () => onOpen(doc),
         onLongPress: () => onMenu(doc),
@@ -759,11 +968,22 @@ class _DocCard extends StatelessWidget {
                 children: [
                   Icon(_icon, size: 20, color: theme.colorScheme.primary),
                   const Spacer(),
-                  InkWell(
-                    onTap: () => onMenu(doc),
-                    child: Icon(Icons.more_vert,
-                        size: 18, color: theme.colorScheme.outline),
-                  ),
+                  if (selected != null)
+                    Icon(
+                      isSelected
+                          ? Icons.check_circle
+                          : Icons.radio_button_unchecked,
+                      size: 20,
+                      color: isSelected
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.outline,
+                    )
+                  else
+                    InkWell(
+                      onTap: () => onMenu(doc),
+                      child: Icon(Icons.more_vert,
+                          size: 18, color: theme.colorScheme.outline),
+                    ),
                 ],
               ),
               const Spacer(),
