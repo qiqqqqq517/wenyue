@@ -29,6 +29,21 @@ class ReadingSummary {
   /// 阅读时长 Top 文献（文档 ID 与秒数，降序）。
   final List<MapEntry<String, int>> topDocs;
 
+  /// 上周（7 天，不含今日窗口）总秒数，用于环比。
+  final int lastWeekSeconds;
+
+  /// 本窗口（近 7 天含今日）总秒数。
+  final int weekSeconds;
+
+  /// 周环比小数（本周/上周，上周为 0 时返回 null 避免误导）。
+  final double? weekRatio;
+
+  /// 最活跃日（秒数最高的自然日；无记录时为 null）。
+  final DateTime? busiestDay;
+
+  /// 最活跃日的秒数。
+  final int busiestDaySeconds;
+
   const ReadingSummary({
     required this.totalSeconds,
     required this.todaySeconds,
@@ -39,6 +54,11 @@ class ReadingSummary {
     required this.secondsByDoc,
     required this.window,
     required this.topDocs,
+    required this.lastWeekSeconds,
+    required this.weekSeconds,
+    required this.weekRatio,
+    required this.busiestDay,
+    required this.busiestDaySeconds,
   });
 
   static ReadingSummary empty({DateTime? now, int windowDays = 7}) {
@@ -57,6 +77,11 @@ class ReadingSummary {
       secondsByDoc: const {},
       window: window,
       topDocs: const [],
+      lastWeekSeconds: 0,
+      weekSeconds: 0,
+      weekRatio: null,
+      busiestDay: null,
+      busiestDaySeconds: 0,
     );
   }
 }
@@ -108,6 +133,24 @@ class ReadingStatsService {
     final sortedDocs = byDoc.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
+    // 周环比：本周（近 7 天含今日） vs 上周（再往前 7 天）
+    var week = 0;
+    var lastWeek = 0;
+    for (var i = 0; i < 7; i++) {
+      week += byDay[today.subtract(Duration(days: i))] ?? 0;
+      lastWeek += byDay[today.subtract(Duration(days: 7 + i))] ?? 0;
+    }
+
+    // 最活跃日
+    DateTime? busiest;
+    var busiestSeconds = 0;
+    byDay.forEach((day, seconds) {
+      if (seconds > busiestSeconds) {
+        busiest = day;
+        busiestSeconds = seconds;
+      }
+    });
+
     return ReadingSummary(
       totalSeconds: total,
       todaySeconds: todaySeconds,
@@ -118,6 +161,11 @@ class ReadingStatsService {
       secondsByDoc: byDoc,
       window: window,
       topDocs: sortedDocs.take(topDocs).toList(),
+      lastWeekSeconds: lastWeek,
+      weekSeconds: week,
+      weekRatio: busiest == null ? null : (lastWeek == 0 ? null : week / lastWeek),
+      busiestDay: busiest,
+      busiestDaySeconds: busiestSeconds,
     );
   }
 }

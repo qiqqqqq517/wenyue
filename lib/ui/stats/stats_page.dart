@@ -115,6 +115,27 @@ class _StatsPageState extends State<StatsPage> {
                   _StatCard(label: '阅读天数', value: '${s.activeDays} 天'),
                 ],
               ),
+              if (s.busiestDay != null && s.busiestDaySeconds > 0) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    _StatCard(
+                      label: '最活跃日',
+                      value:
+                          '${s.busiestDay!.month}/${s.busiestDay!.day} · ${_fmtDuration(s.busiestDaySeconds)}',
+                    ),
+                    _StatCard(
+                      label: '周环比',
+                      value: s.weekRatio == null
+                          ? '—'
+                          : '${s.weekRatio! >= 1 ? '↑' : '↓'}'
+                              ' ${((s.weekRatio! - 1).abs() * 100).toStringAsFixed(0)}%',
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 24),
               Text('近 7 天', style: Theme.of(context).textTheme.titleSmall),
               const SizedBox(height: 10),

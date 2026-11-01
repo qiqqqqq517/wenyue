@@ -112,6 +112,50 @@ void main() {
       expect(r.topDocs[0].key, 'y');
       expect(r.topDocs[1].key, 'z');
     });
+
+    test('周环比：本周/上周计算正确', () {
+      final now = DateTime(2026, 11, 1, 20); // 本窗口 10-26 ~ 11-01
+      final sessions = [
+        // 本周：600
+        _session('a', DateTime(2026, 11, 1, 9), 600),
+        // 上周（10-19 ~ 10-25）：300
+        _session('b', DateTime(2026, 10, 20, 9), 300),
+      ];
+      final r = ReadingStatsService.summarize(sessions, now: now);
+      expect(r.weekSeconds, 600);
+      expect(r.lastWeekSeconds, 300);
+      expect(r.weekRatio, closeTo(2.0, 0.001));
+    });
+
+    test('周环比：上周为 0 时返回 null（避免误导性无穷大）', () {
+      final now = DateTime(2026, 11, 1, 20);
+      final r = ReadingStatsService.summarize([
+        _session('a', DateTime(2026, 11, 1, 9), 600),
+      ], now: now);
+      expect(r.lastWeekSeconds, 0);
+      expect(r.weekRatio, isNull);
+    });
+
+    test('最活跃日取秒数最高自然日', () {
+      final now = DateTime(2026, 11, 1, 20);
+      final r = ReadingStatsService.summarize([
+        _session('a', DateTime(2026, 10, 30, 9), 120),
+        _session('b', DateTime(2026, 10, 31, 9), 480),
+        _session('c', DateTime(2026, 11, 1, 9), 240),
+      ], now: now);
+      expect(r.busiestDay, DateTime(2026, 10, 31));
+      expect(r.busiestDaySeconds, 480);
+    });
+
+    test('空数据最活跃日为 null', () {
+      final r = ReadingStatsService.summarize(
+        const [],
+        now: DateTime(2026, 11, 1),
+      );
+      expect(r.busiestDay, isNull);
+      expect(r.busiestDaySeconds, 0);
+      expect(r.weekRatio, isNull);
+    });
   });
 
   group('ReadingStatsRepositoryImpl', () {

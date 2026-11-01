@@ -1,6 +1,23 @@
 # 验收记录
 
-> 更新：2026-11-01（第十三轮迭代 v1.11.1）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+> 更新：2026-11-01（第十四轮迭代 v1.12.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+
+## 1.6 第十四轮迭代验收（v1.12.0 统计周报，2026-11-01）
+
+| 项目 | 结果 |
+| --- | --- |
+| `dart analyze` | 0 问题 |
+| `flutter test` | 108/108 通过（新增周报指标 ×4） |
+| Windows Release 构建 | ✅ 经 `C:\wenyue` junction 构建并冒烟通过 |
+
+新增内容：
+
+- **周环比**：`ReadingSummary.weekSeconds / lastWeekSeconds / weekRatio`
+  （本周=近 7 天含今日，上周=再往前 7 天；上周为 0 或无记录时 ratio=null）。
+- **最活跃日**：`busiestDay / busiestDaySeconds`（秒数最高自然日，并列取先出现）。
+- **统计页**：有记录时显示「最活跃日」「周环比」（↑/↓ + 百分比）两张指标卡。
+- **单测 ×4**：环比计算、上周为 0 → null、最活跃日选取、空数据 null。
+- **版本**：`pubspec.yaml` → `1.12.0+13`。
 
 ## 1.5 第十三轮迭代验收（v1.11.1 Release APK 模拟器冒烟，2026-11-01）
 
