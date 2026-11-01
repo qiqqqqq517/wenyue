@@ -2,7 +2,7 @@
 library;
 
 /// 当前版本（与 pubspec.yaml 的 version 前缀保持一致）。
-const String kAppVersion = '1.32.1';
+const String kAppVersion = '1.32.2';
 
 /// 应用显示名。
 const String kAppName = '文阅';

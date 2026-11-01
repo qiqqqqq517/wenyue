@@ -34,6 +34,14 @@ class PdfReaderViewState extends State<PdfReaderView>
   final PdfViewerController _controller = PdfViewerController();
   PdfTextSearcher? _searcher;
 
+  /// **必须是稳定实例**：pdfrx 的 `PdfViewer._widgetUpdated` 在
+  /// `await pdfrxFlutterInitialize()` / `await fontManager.prepare()` 之后会校验
+  /// `identical(documentRef, widget.documentRef)`（`pdfrx/lib/src/widgets/pdf_viewer.dart:388`），
+  /// 不等则**静默 return 且永不调用 `load()`**。若像以前那样在 `build()` 里
+  /// `PdfDocumentRefFile(widget.filePath)` 逐帧新建，await 期间实例已换，
+  /// 于是文档永不加载、界面一直空白且不报错（实测 `pageCount` 16 秒保持 0）。
+  late PdfDocumentRefFile _documentRef;
+
   PdfTextSelection? _selection;
   String _selectionText = '';
   List<engine.PdfPageTextRange> _selectionRanges = const [];
@@ -44,9 +52,31 @@ class PdfReaderViewState extends State<PdfReaderView>
   @override
   void initState() {
     super.initState();
-    _searcher = PdfTextSearcher(_controller);
+    _documentRef = PdfDocumentRefFile(widget.filePath);
     _controller.addListener(_onControllerChanged);
     _preloadAnnotatedPages();
+  }
+
+  @override
+  void didUpdateWidget(covariant PdfReaderView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 换文档时才换 ref（同一路径必须复用同一实例，理由见 _documentRef 注释）。
+    if (oldWidget.filePath != widget.filePath) {
+      _documentRef = PdfDocumentRefFile(widget.filePath);
+    }
+  }
+
+  /// 懒建文本搜索器。
+  ///
+  /// pdfrx 的 [PdfTextSearcher] 构造函数会**立刻**调用 `_registerForDocumentChanges()`，
+  /// 其中访问 `controller.document.events`（`pdfrx/lib/src/widgets/pdf_text_searcher.dart:179`），
+  /// 而文档就绪前 `controller.document` 为 null → 抛
+  /// `Null check operator used on a null value`。若在 `initState` 里直接构造，
+  /// 该异常会让 [PdfReaderView] 整个建不出来，表现为「导入后打不开」。
+  /// 因此必须等 [PdfViewerController.isReady] 之后再建。
+  void _ensureSearcher() {
+    if (_searcher != null || !_controller.isReady) return;
+    _searcher = PdfTextSearcher(_controller);
   }
 
   @override
@@ -57,6 +87,7 @@ class PdfReaderViewState extends State<PdfReaderView>
   }
 
   void _onControllerChanged() {
+    _ensureSearcher();
     final page = _controller.pageNumber;
     final count = _controller.pageCount;
     if (page != null && count > 0) {
@@ -77,8 +108,27 @@ class PdfReaderViewState extends State<PdfReaderView>
     });
   }
 
+  /// 等 [PdfViewer] 把控制器挂上并加载完文档后再取 [engine.PdfDocument]。
+  ///
+  /// pdfrx 的 `useDocument` 会先访问控制器内部 `_state`
+  /// （`pdfrx/lib/src/widgets/pdf_viewer.dart:4030` 的 `__state!`）与
+  /// `documentRef`（`:4087` 的 `_state.widget.documentRef`）——在 `PdfViewer`
+  /// 尚未把控制器挂上之前调用会抛 `Null check operator used on a null value`
+  /// （实测：文档渲染完成后点「目录」按钮即触发）。故先轮询
+  /// [PdfViewerController.isReady]（= 状态已挂上且文档页已加载）。
+  Future<bool> _waitReady() async {
+    final deadline = DateTime.now().add(const Duration(seconds: 15));
+    while (!_controller.isReady &&
+        mounted &&
+        DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    return _controller.isReady;
+  }
+
   Future<void> _ensurePageText(int pageNumber) async {
     if (_textCache.containsKey(pageNumber)) return;
+    if (!await _waitReady()) return;
     final text = await _controller.useDocument(
       (doc) async {
         if (pageNumber < 1 || pageNumber > doc.pages.length) return null;
@@ -215,7 +265,7 @@ class PdfReaderViewState extends State<PdfReaderView>
     return Stack(
       children: [
         PdfViewer(
-          PdfDocumentRefFile(widget.filePath),
+          _documentRef,
           controller: _controller,
           initialPageNumber: widget.initialPosition.index,
           params: PdfViewerParams(
@@ -246,6 +296,7 @@ class PdfReaderViewState extends State<PdfReaderView>
 
   @override
   Future<List<TocItem>> loadToc() async {
+    if (!await _waitReady()) return const [];
     final nodes = await _controller.useDocument((doc) => doc.loadOutline());
     if (nodes == null) return const [];
     final out = <TocItem>[];
@@ -266,8 +317,10 @@ class PdfReaderViewState extends State<PdfReaderView>
 
   @override
   Future<List<SearchHit>> search(String query) async {
+    if (query.isEmpty) return const [];
+    _ensureSearcher();
     final searcher = _searcher;
-    if (query.isEmpty || searcher == null) return const [];
+    if (searcher == null) return const [];
     searcher.startTextSearch(query, searchImmediately: true);
     // 等待搜索收敛（首版：轮询至完成或超时）
     final deadline = DateTime.now().add(const Duration(seconds: 6));
@@ -309,25 +362,36 @@ class PdfReaderViewState extends State<PdfReaderView>
   }
 
   /// 缩放控制（外壳工具栏调用）。
-  Future<void> zoomIn() => _controller.zoomUp();
+  Future<void> zoomIn() async {
+    if (!_controller.isReady) return;
+    await _controller.zoomUp();
+  }
 
-  Future<void> zoomOut() => _controller.zoomDown();
+  Future<void> zoomOut() async {
+    if (!_controller.isReady) return;
+    await _controller.zoomDown();
+  }
 
-  /// 当前页码（书签取位用；未就绪时回退初始页）。
-  int get currentPageNumber =>
-      _controller.pageNumber ?? widget.initialPosition.index;
+  /// 当前页码（书签取位用；控制器未挂上/文档未就绪时回退初始页）。
+  ///
+  /// pdfrx 的 `pageNumber` 走内部控制器的 `_state!`，未就绪时读取会抛
+  /// `Null check operator used on a null value`，故必须守卫。
+  int get currentPageNumber => _controller.isReady
+      ? (_controller.pageNumber ?? widget.initialPosition.index)
+      : widget.initialPosition.index;
 
-  /// 总页数（工具栏页码框展示用）。
-  int get pageCount => _controller.pageCount;
+  /// 总页数（工具栏页码框展示用）；尚未就绪时为 0。
+  int get pageCount => _controller.isReady ? _controller.pageCount : 0;
 
   /// 跳转到指定页（页码框 / 快捷键共用）。
   Future<void> goToPage(int page) async {
-    if (page < 1) return;
+    if (page < 1 || !_controller.isReady) return;
     await _controller.goToPage(pageNumber: page);
   }
 
   /// 下一页（→ 快捷键）。
   Future<void> goToNextPage() async {
+    if (!_controller.isReady) return;
     final page = _controller.pageNumber;
     if (page != null && page < _controller.pageCount) {
       await _controller.goToPage(pageNumber: page + 1);
@@ -336,6 +400,7 @@ class PdfReaderViewState extends State<PdfReaderView>
 
   /// 上一页（← 快捷键）。
   Future<void> goToPreviousPage() async {
+    if (!_controller.isReady) return;
     final page = _controller.pageNumber;
     if (page != null && page > 1) {
       await _controller.goToPage(pageNumber: page - 1);

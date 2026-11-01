@@ -33,13 +33,43 @@
 > · 第三十三轮：2026-11-01（v1.31.0 正文层令牌化补全 + 取色纪律机器护栏）
 > · 第三十四轮：2026-11-01（v1.32.0 反「机器味」审计：引入 Hallmark Floor 硬底线）
 > · 第三十五轮：2026-11-01（v1.32.1 修导入失败：drift 迁移幂等自愈 + PDF 元数据 BOM + 导入失败回滚）
+> · 第三十六轮：2026-11-02（v1.32.2 修「导入后打不开」：PDF 阅读器三处缺陷；并查明中文路径必须走 ASCII junction 构建与测试）
 > 本文档面向下一位开发者（或下一次会话），目标是 5 分钟内恢复全部上下文。
+
+---
+
+## 0. 必读：本项目必须在 ASCII 路径下构建与测试
+
+仓库位于 `D:\01项目\文阅`（含中文）。**在中文路径下直接 `flutter build windows` 或 `flutter test` 会失败**，
+且两种失败都**不报真实原因**：
+
+- 构建：`error : Unable to read file: D:\01锟斤拷目\锟斤拷锟斤拷\.dart_tool\flutter_build\…\app.dill`
+  （中文路径被工具链按非 UTF-8 代码页传递而乱码）
+- 测试：`Failed to load "…_test.dart": Connection closed before test suite loaded`
+  （实测中文路径下全量 3/3 尝试失败；改从 junction 跑第 1 次即 270/270 全绿）
+
+⇒ 一律用已有的 ASCII junction（`mklink /J C:\wenyue "D:\01项目\文阅"`，已建好），
+以 `C:\wenyue` 为工作目录执行 `flutter build windows --release` 与 `flutter test`。
+若报 `windows\flutter\ephemeral\cpp_client_wrapper\*.cc: No such file or directory`，
+删掉整个 `windows\flutter\ephemeral`（gitignored，flutter 会再生）后重跑即可。
 
 ---
 
 ## 1. 一句话现状
 
-**代码全部完成且质量达标**（`dart analyze lib test` 0 问题、`flutter test` 269/269 通过）。
+**代码全部完成且质量达标**（`dart analyze lib test` 0 问题、`flutter test` 270/270 通过）。
+第三十六轮（v1.32.2）**修掉「导入后打不开」**：PDF 阅读器有三处真实缺陷，都因此前库一直是空的、
+PDF 阅读界面从未被真正打开过而一直没暴露 —— ① `PdfReaderView.initState` 里提前构造
+`PdfTextSearcher`，而它在构造函数中就订阅 `controller.document.events`，此时文档尚未就绪，
+抛 `Null check operator used on a null value`，导致 `PdfReaderView` 整个建不出来（界面空白）；
+② `build()` 内逐帧 `PdfDocumentRefFile(widget.filePath)` 新建实例，使 pdfrx
+`_widgetUpdated` 在 await 之后的 `identical(documentRef, widget.documentRef)` 校验失败而
+**静默 return、永不调用 `load()`**（`pdfrx/src/widgets/pdf_viewer.dart:388`）——文档永不加载、
+不报任何错；③ `loadToc`/`useDocument`、`pageCount`/`currentPageNumber`/翻页/缩放在控制器
+`_state` 挂上之前访问会抛同样的 null check（实测点「目录」按钮即崩）。修法：搜索器与文档
+使用一律等 `controller.isReady`，并把 `PdfDocumentRefFile` 提为 state 字段（稳定实例，
+`didUpdateWidget` 换路径才换）。另新增 `test/pdf_reader_widget_test.dart`（断言重建后 ref 实例
+恒定 + 构建期无异常）。**并且查明中文路径的真因（见 §0）**。
 第三十五轮（v1.32.1）**修掉「导入文档失败」**：根因是 drift 迁移**不可重入** —— 真实库
 曾处于「`user_version` 停在 1、但 `documents` 已含 v2 列 `source_path`」的半迁移中间态
 （drift 迁移并非原子，实测中途抛错时 DDL 已落盘而版本号未推进），于是每次打开数据库都在
@@ -81,7 +111,9 @@ Windows 构建从 `C:\wenyue` junction 进行（原路径中文导致 Release AO
 | --- | --- | --- |
 | 领域/数据/服务/阅读器/UI 五层代码 | ✅ 完成 | 分层架构，见 §4 |
 | `dart analyze` | ✅ 0 问题 | 注意：中文路径下只能用 `dart analyze`，`flutter analyze` 会崩 |
-| `flutter test` | ✅ 269/269 | v1.29.0 的 181 + 设计令牌 41 + 玻璃组件 17 + 页面冒烟 4 + 取色纪律 6 + Hallmark Floor 7 + 迁移自愈 4 + 导入正向/元数据/回滚 9 |
+| `flutter test` | ✅ 270/270 | v1.29.0 的 181 + 设计令牌 41 + 玻璃组件 17 + 页面冒烟 4 + 取色纪律 6 + Hallmark Floor 7 + 迁移自愈 4 + 导入正向/元数据/回滚 9 + PDF 阅读器回归 1 ｜ **必须从 `C:\wenyue` 跑（见 §0）** |
+| PDF 阅读器 | ✅ 修复（v1.32.2） | `PdfTextSearcher` 懒建（initState 提前建会抛 null check 使阅读器建不出来）；`PdfDocumentRefFile` 提为 state 字段（逐帧新建会让 pdfrx 静默跳过 `load()`）；`loadToc`/页数/翻页/缩放一律先等 `controller.isReady` |
+| ASCII 路径构建与测试 | ✅ 强制（v1.32.2） | 中文路径下 `flutter build windows` 与 `flutter test` 都会失败且不报真因；一律以 `C:\wenyue` junction 为工作目录执行（见 §0） |
 | 迁移幂等自愈 | ✅ 修复（v1.32.1） | `onUpgrade` 每步先做存在性判断；修掉「`user_version=1` 且已含 `source_path`」的历史库**打开即失败**（根因见 §1）；`onCreate` 显式 `createAll()` |
 | 导入孤儿回滚 | ✅ 新增（v1.32.1） | `importSingle` 把 `writeFile` 及后续步骤纳入 try，失败即删掉刚写入的 `uuid.ext`；同步/备份路径不复用该入口（`importSingle` 全仓仅 `importFiles` 一个调用点） |
 | PDF /Info 编码 | ✅ 修复（v1.32.1） | `_pdfInfoString` 先按 PDF 转义还原字节、再按 BOM 解 UTF-16BE/LE；此前 UTF-16 字面量标题落库为 `þÿ…` 乱码 |
