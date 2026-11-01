@@ -16,6 +16,7 @@ import '../../readers/text/markdown_reader.dart';
 import '../../readers/text/txt_reader.dart';
 import '../settings/settings_view_model.dart';
 import '../shortcuts.dart';
+import '../shortcuts_help.dart';
 
 /// 阅读器外壳：目录 / 搜索 / 批注 / 排版设置 / 进度保存。
 class ReaderPage extends StatefulWidget {
@@ -538,6 +539,7 @@ class _ReaderPageState extends State<ReaderPage> {
         AppShortcuts.fontReset: () =>
             SettingsViewModel.instance(_c).setReaderFontSize(16),
         AppShortcuts.escape: _closePanels,
+        AppShortcuts.help: () => showShortcutsHelp(context),
         if (isPdf)
           AppShortcuts.nextPage: () {
             if (!_searchOpen && !_pageFocus.hasFocus) {

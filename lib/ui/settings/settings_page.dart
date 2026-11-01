@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/app_info.dart';
 import '../../di/app_container.dart';
 import 'settings_view_model.dart';
 import 'webdav_page.dart';
@@ -90,6 +91,28 @@ class _SettingsPageState extends State<SettingsPage> {
               );
             },
           ),
+          ListenableBuilder(
+            listenable: vm,
+            builder: (context, _) {
+              return ListTile(
+                title: const Text('阅读字体'),
+                subtitle: const Text('仅影响正文，代码块始终使用等宽字体'),
+                trailing: DropdownButton<String>(
+                  value: vm.snapshot.readerFontFamily,
+                  items: const [
+                    DropdownMenuItem(value: '', child: Text('系统默认')),
+                    DropdownMenuItem(value: '微软雅黑', child: Text('微软雅黑')),
+                    DropdownMenuItem(value: '宋体', child: Text('宋体')),
+                    DropdownMenuItem(value: '楷体', child: Text('楷体')),
+                    DropdownMenuItem(value: '等线', child: Text('等线')),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) vm.setReaderFontFamily(v);
+                  },
+                ),
+              );
+            },
+          ),
           const _SectionHeader('同步'),
           ListTile(
             leading: const Icon(Icons.cloud_outlined),
@@ -112,11 +135,11 @@ class _SettingsPageState extends State<SettingsPage> {
           ListTile(
             leading: const Icon(Icons.info_outline),
             title: const Text('关于文阅'),
-            subtitle: const Text('本地优先的文献阅读器 v0.1.0'),
+            subtitle: Text('本地优先的文献阅读器 v$kAppVersion'),
             onTap: () => showAboutDialog(
               context: context,
-              applicationName: '文阅',
-              applicationVersion: '0.1.0',
+              applicationName: kAppName,
+              applicationVersion: kAppVersion,
               applicationLegalese: '本地阅读 · WebDAV 同步\n'
                   '借鉴 Zotero 的文献整理与 KOReader 的阅读体验。',
             ),

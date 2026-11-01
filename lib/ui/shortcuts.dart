@@ -38,6 +38,10 @@ class AppShortcuts {
   static const fontReset =
       SingleActivator(LogicalKeyboardKey.digit0, control: true);
 
+  /// Ctrl+/：快捷键帮助（书库 / 阅读器）。
+  static const help =
+      SingleActivator(LogicalKeyboardKey.slash, control: true);
+
   /// Esc：关闭当前面板（阅读器）。
   static const escape = SingleActivator(LogicalKeyboardKey.escape);
 

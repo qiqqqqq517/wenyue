@@ -1,6 +1,25 @@
 # 验收记录
 
-> 更新：2026-11-01（第九轮迭代 v1.8.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+> 更新：2026-11-01（第十轮迭代 v1.9.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+
+## 1.2 第十轮迭代验收（v1.9.0 桌面可发现性，2026-11-01）
+
+| 项目 | 结果 |
+| --- | --- |
+| `dart analyze` | 0 问题 |
+| `flutter test` | 84/84 通过（新增快捷键帮助 ×4、字体持久化 ×2） |
+| Windows Release 构建 | ✅ 经 `C:\wenyue` junction 构建并冒烟通过 |
+
+新增内容：
+
+- **快捷键帮助页**（`lib/ui/shortcuts_help.dart`）：`ShortcutsHelpDialog` 按
+  「书库 / 阅读器」分组展示全部快捷键；`Ctrl+/` 打开（书库与阅读器均已绑定），
+  书库工具栏新增键盘图标入口；`kShortcutGroups` 数据与 `AppShortcuts` 绑定同源。
+- **阅读字体**：设置页新增字体下拉（系统默认 / 微软雅黑 / 宋体 / 楷体 / 等线），
+  经 `SettingsStore.setReaderFontFamily` 持久化（key `reader.fontFamily`）。
+- **版本号统一**：`lib/core/app_info.dart` 的 `kAppVersion` 作为单一来源，
+  关于页不再硬编码 `0.1.0`。
+- **版本**：`pubspec.yaml` → `1.9.0+9`。
 
 ## 1.1 第九轮迭代验收（v1.8.0 WebDAV 端到端，2026-11-01）
 

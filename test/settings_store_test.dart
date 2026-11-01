@@ -39,4 +39,25 @@ void main() {
       expect(s.libraryView, 'list');
     });
   });
+
+  group('SettingsStore 阅读字体', () {
+    test('默认空字符串（系统默认字体）', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final store = SettingsStore(prefs);
+      expect(store.load().readerFontFamily, '');
+    });
+
+    test('设置字体并持久化', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final store = SettingsStore(prefs);
+
+      await store.setReaderFontFamily('微软雅黑');
+      expect(store.load().readerFontFamily, '微软雅黑');
+
+      await store.setReaderFontFamily('');
+      expect(store.load().readerFontFamily, '');
+    });
+  });
 }

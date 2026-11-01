@@ -13,6 +13,7 @@ import '../../services/notes_exporter.dart';
 import '../reader/reader_page.dart';
 import '../settings/settings_page.dart';
 import '../shortcuts.dart';
+import '../shortcuts_help.dart';
 import '../stats/stats_page.dart';
 import 'library_filter.dart';
 
@@ -99,6 +100,7 @@ class _LibraryPageState extends State<LibraryPage> {
               context,
               MaterialPageRoute(builder: (_) => SettingsPage(container: _c)),
             ),
+        AppShortcuts.help: () => showShortcutsHelp(context),
       },
       child: Scaffold(
         appBar: AppBar(
@@ -151,6 +153,11 @@ class _LibraryPageState extends State<LibraryPage> {
                 PopupMenuItem(value: 'notes', child: Text('导出全部批注（Markdown）')),
                 PopupMenuItem(value: 'csv', child: Text('导出书库清单（CSV）')),
               ],
+            ),
+            IconButton(
+              tooltip: '快捷键（Ctrl+/）',
+              onPressed: () => showShortcutsHelp(context),
+              icon: const Icon(Icons.keyboard_outlined),
             ),
             IconButton(
               tooltip: '设置（Ctrl+,）',
