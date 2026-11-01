@@ -6,17 +6,18 @@
 > · 第六轮：2026-11-01（v1.5.0 渲染增强：代码高亮 + 图片查看器）
 > · 第七轮：2026-11-01（v1.6.0 质量加固：TextDocView widget 测试）
 > · 第八轮：2026-11-01（v1.7.0 导出增强：批注合集 + 书库清单 CSV）
+> · 第九轮：2026-11-01（v1.8.0 WebDAV 端到端实测）
 > 本文档面向下一位开发者（或下一次会话），目标是 5 分钟内恢复全部上下文。
 
 ---
 
 ## 1. 一句话现状
 
-**代码全部完成且质量达标**（`dart analyze` 0 问题、`flutter test` 73/73 通过）。
-第八轮（v1.7.0）完成**导出增强**：书库导出全部批注为 Markdown 合集
-（按文献分节、跳过无批注文献）、书库清单 CSV（UTF-8 BOM，Excel 友好），
-纯函数实现并有单测覆盖 CSV 转义。
-第七轮完成质量加固（TextDocView widget 测试 6 例）；第六轮渲染增强；第五轮书库视图/标签。
+**代码全部完成且质量达标**（`dart analyze` 0 问题、`flutter test` 77/77 通过）。
+第九轮（v1.8.0）完成 **WebDAV 同步端到端实测**：测试内自建最小 WebDAV 服务
+（OPTIONS/MKCOL/GET/PUT/DELETE），用真实 `WebDavTransport` 走 HTTP 验证
+首同步上传、第二设备拉取、批注跨设备同步、并发修改冲突副本四条链路。
+第八轮完成导出增强；第七轮 widget 测试；第六轮渲染增强。
 Windows 构建从 `C:\wenyue` junction 进行（原路径中文导致 Release AOT 路径乱码）。
 
 ## 2. 状态一览表
@@ -25,8 +26,9 @@ Windows 构建从 `C:\wenyue` junction 进行（原路径中文导致 Release AO
 | --- | --- | --- |
 | 领域/数据/服务/阅读器/UI 五层代码 | ✅ 完成 | 分层架构，见 §4 |
 | `dart analyze` | ✅ 0 问题 | 注意：中文路径下只能用 `dart analyze`，`flutter analyze` 会崩 |
-| `flutter test` | ✅ 73/73 | 解析 ×7 + TXT 章节 ×4 + EPUB ×1 + 同步 ×6 + 导入 ×6 + 解码 ×7 + 快捷键 ×4 + 统计 ×9 + 书库筛选 ×7 + 设置 ×3 + 代码高亮 ×9 + 渲染 widget ×6 + 导出 ×4 |
+| `flutter test` | ✅ 77/77 | 解析 ×7 + TXT 章节 ×4 + EPUB ×1 + 同步 ×6 + 导入 ×6 + 解码 ×7 + 快捷键 ×4 + 统计 ×9 + 书库筛选 ×7 + 设置 ×3 + 代码高亮 ×9 + 渲染 widget ×6 + 导出 ×4 + WebDAV 端到端 ×4 |
 | 依赖锁定 | ✅ | `pubspec.lock`，决策记录见 `THIRD_PARTY_NOTICES.md` |
+| WebDAV 端到端 | ✅ 新增（v1.8.0） | 测试内最小 WebDAV 服务 + 真实 HTTP：上传/拉取/批注同步/冲突副本 |
 | 一键书签 | ✅ 新增 | 工具栏图标，PDF 锚页码 / EPUB 锚章 / MD-TXT 锚偏移；再点取消 |
 | 大纲侧栏 | ✅ 新增 | 目录改左侧面板；MD/TXT 自动生成大纲 |
 | 搜索持续导航 | ✅ 新增 | 命中计数 + 上/下一个；替代一次性底部弹层 |
@@ -46,7 +48,7 @@ Windows 构建从 `C:\wenyue` junction 进行（原路径中文导致 Release AO
 | Windows Release 构建 | ✅ 需 junction | 原路径 AOT 产物路径乱码（见 §5）；从 `C:\wenyue` 构建成功 |
 | Android debug APK | ✅ 构建成功 | 中文路径绕过见 §5 |
 | Android 模拟器实测 | 🟡 60% | 导入/书库/MD 渲染 ✅；高亮/主题/EPUB/PDF/进度恢复 ⏳ |
-| WebDAV 同步实测 | ⏳ 未测 | 引擎有 6 个单测覆盖；需用户自配服务器做端到端 |
+| WebDAV 同步实测 | ✅（v1.8.0） | 本机自建 WebDAV 服务端到端 4 例；真实第三方服务器（坚果云/NAS）仍建议人工验证一次 |
 | 应用图标 | ✅ 已更换（v1.2.0） | 用户提供 1920×1920 磨砂玻璃图标；已生成 Windows ico / Android mipmap / macOS appiconset，源图存 `docs/icon/` |
 | macOS / Linux | ⏳ 待环境 | 代码无平台专属 API，预计直接可构建 |
 

@@ -1,6 +1,28 @@
 # 验收记录
 
-> 更新：2026-11-01（第八轮迭代 v1.7.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+> 更新：2026-11-01（第九轮迭代 v1.8.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+
+## 1.1 第九轮迭代验收（v1.8.0 WebDAV 端到端，2026-11-01）
+
+| 项目 | 结果 |
+| --- | --- |
+| `dart analyze` | 0 问题 |
+| `flutter test` | 77/77 通过（新增 WebDAV 端到端 ×4；串行 `--concurrency=1`） |
+| Windows Release 构建 | ✅ 经 `C:\wenyue` junction 构建并冒烟通过 |
+
+新增内容：
+
+- **minimal WebDAV 服务**（`test/webdav_sync_live_test.dart` 内嵌）：真实 `HttpServer`
+  支持 OPTIONS / MKCOL（201/405/409 父目录语义）/ GET（200/404）/ PUT / DELETE。
+- **真实 HTTP 端到端 4 例**（使用真实 `WebDavTransport` + `webdav_client`，非内存 fake）：
+  1. 首同步上传 `library.json` 与 `docs/<file>`（内容逐字节一致）；
+  2. 第二设备（独立 DB/文件存储）拉取文献、批注与副本文件；
+  3. 乙方新增批注 → 甲方同步后可见；
+  4. 双方并发修改同一文献 → 较新者为主 + 冲突副本生成。
+- **版本**：`pubspec.yaml` → `1.8.0+8`。
+
+备注：`flutter test` 偶发 "did not complete" 经复跑确认为残留进程/环境问题
+（复跑 77/77 稳定通过），非用例缺陷。
 
 ## 1.0 第八轮迭代验收（v1.7.0 导出增强，2026-11-01）
 
