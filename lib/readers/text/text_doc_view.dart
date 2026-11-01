@@ -794,31 +794,24 @@ class _ImageViewState extends State<_ImageView> {
                 errorBuilder: (_, _, _) => Text('图片解码失败：${widget.block.src}'),
               ),
             ),
-          );
-        },
+          );        },
       ),
     );
   }
 
-  /// 全屏图片查看器：黑底、可缩放平移（InteractiveViewer），点背景关闭。
+  /// 全屏图片查看器：黑底、可缩放平移（InteractiveViewer）、双击快速缩放，
+  /// 关闭走右上角按钮（单击不再与缩放手势冲突）。
   void _openViewer(BuildContext context, Uint8List data) {
     showDialog<void>(
       context: context,
       barrierColor: Colors.black87,
+      barrierDismissible: true,
       builder: (ctx) => Dialog.fullscreen(
         backgroundColor: Colors.transparent,
         child: Stack(
           children: [
             Positioned.fill(
-              child: GestureDetector(
-                onTap: () => Navigator.pop(ctx),
-                child: InteractiveViewer(
-                  maxScale: 8,
-                  child: Center(
-                    child: Image.memory(data, fit: BoxFit.contain),
-                  ),
-                ),
-              ),
+              child: ZoomableImageViewer(data: data),
             ),
             SafeArea(
               child: Align(
@@ -834,6 +827,77 @@ class _ImageViewState extends State<_ImageView> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 全屏可缩放图片：双击在 1x/2.5x 间切换（缩放中心为点击处），可拖动平移。
+///
+/// 公共组件便于测试直接挂载（绕开文本流手势竞争），也可被 PDF 阅读器复用。
+/// [onTransformChanged] 在每次矩阵变化时回调当前缩放倍率（测试与扩展用）。
+class ZoomableImageViewer extends StatefulWidget {
+  const ZoomableImageViewer({super.key, required this.data, this.onScaleChanged});
+
+  final Uint8List data;
+
+  /// 当前缩放倍率变化回调（null 表示不关心）。
+  final ValueChanged<double>? onScaleChanged;
+
+  @override
+  State<ZoomableImageViewer> createState() => _ZoomableImageState();
+}
+
+class _ZoomableImageState extends State<ZoomableImageViewer> {
+  final TransformationController _transform = TransformationController();
+  static const _kZoomStep = 2.5;
+
+  @override
+  void initState() {
+    super.initState();
+    _transform.addListener(_notifyScale);
+  }
+
+  void _notifyScale() {
+    widget.onScaleChanged?.call(_transform.value.getMaxScaleOnAxis());
+  }
+
+  @override
+  void dispose() {
+    _transform.removeListener(_notifyScale);
+    _transform.dispose();
+    super.dispose();
+  }
+
+  void _handleDoubleTap(TapDownDetails details) {
+    final current = _transform.value.getMaxScaleOnAxis();
+    final position = details.localPosition;
+    if (current > 1.05) {
+      _transform.value = Matrix4.identity();
+    } else {
+      // 以点击位置为缩放中心放大
+      const scale = _kZoomStep;
+      _transform.value = Matrix4.identity()
+        ..translateByDouble(
+            position.dx * (1 - scale), position.dy * (1 - scale), 0, 1)
+        ..scaleByDouble(scale, scale, 1, 1);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onDoubleTapDown: _handleDoubleTap,
+      onDoubleTap: () {},
+      child: InteractiveViewer(
+        transformationController: _transform,
+        minScale: 0.5,
+        maxScale: 8,
+        panEnabled: true,
+        boundaryMargin: const EdgeInsets.all(double.infinity),
+        child: Center(
+          child: Image.memory(widget.data, fit: BoxFit.contain),
         ),
       ),
     );

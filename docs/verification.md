@@ -1,6 +1,25 @@
 # 验收记录
 
-> 更新：2026-11-01（第二十轮迭代 v1.18.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+> 更新：2026-11-01（第二十一轮迭代 v1.19.0）　·　环境：Windows 11 24H2 x64，Flutter 3.47.1 stable，Dart 3.13
+
+## 2.3 第二十一轮迭代验收（v1.19.0 图片查看器双击缩放，2026-11-01）
+
+| 项目 | 结果 |
+| --- | --- |
+| `dart analyze` | 0 问题 |
+| `flutter test` | 129/129（新增 ZoomableImageViewer widget 测试 ×1） |
+| Windows Release 构建 | ✅ 经 `C:\wenyue` junction 构建并冒烟通过 |
+
+新增/修复：
+
+- **手势冲突修复**：原实现「单击关闭」与 InteractiveViewer 缩放手势竞争，
+  且 1x1 小图命中区为 0 尺寸；改为右上角按钮关闭 + `barrierDismissible` 点背景关。
+- **双击缩放**：`ZoomableImageViewer`（公共组件）——双击在 1x↔2.5x 间切换，
+  缩放中心=点击处（`translateByDouble`+`scaleByDouble` 新 API），无限边界平移，
+  minScale 0.5 / maxScale 8；`onScaleChanged` 回调当前倍率。
+- **测试**：直接挂载 `ZoomableImageViewer`（绕开 TextDocView 文本流手势竞争），
+  断言回调序列含 2.5x 且最终复原 1x。
+- **版本**：`pubspec.yaml` → `1.19.0+20`。
 
 ## 2.2 第二十轮迭代验收（v1.18.0 书库排序偏好持久化，2026-11-01）
 
