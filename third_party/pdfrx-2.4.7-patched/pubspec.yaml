@@ -1,0 +1,50 @@
+name: pdfrx
+description: pdfrx is a rich and fast PDF viewer and manipulation plugin built on the top of PDFium. Supports viewing, editing, combining PDFs on Android, iOS, Windows, macOS, Linux, and Web.
+version: 2.4.7+patched.1
+homepage: https://github.com/espresso3389/pdfrx
+repository: https://github.com/espresso3389/pdfrx/tree/master/packages/pdfrx
+issue_tracker: https://github.com/espresso3389/pdfrx/issues
+
+# ⚠️ 这是上游 pdfrx 2.4.7 的**修改版**（vendored patch，2026-11-02）。
+# 改动清单见同目录 PATCHES.md；上游原始文件保留，补丁点均带 `[wenyue patch]` 注释。
+# 许可：MIT（见同目录 LICENSE，版权归原作者 @espresso3389）。
+
+environment:
+  sdk: ^3.10.0
+  flutter: '>=3.41.0'
+# 原上游为 pub workspace 成员（`resolution: workspace`）；此处作为普通 path 依赖，
+# 必须去掉该行，否则 pub 解析失败。
+
+dependencies:
+  pdfrx_engine: ^0.4.5
+  pdfium_flutter: ^0.2.3
+  collection:
+  crypto:
+  flutter:
+    sdk: flutter
+  path:
+  path_provider:
+  rxdart:
+  synchronized:
+  url_launcher: ^6.3.2
+  vector_math:
+  web: ^1.1.1
+  yaml:
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints:
+  archive:
+  http:
+
+executables:
+  remove_darwin_pdfium_modules
+
+# 上游的 `assets/`（5.2 MB pdfium wasm，仅 `platforms: [web]`）已剔除：
+# 文阅只构建 Windows/Android，不构建 web。若将来要支持 web 阅读，
+# 需从 pub 缓存重新拷贝 assets/ 并恢复下面的声明。
+# flutter:
+#   assets:
+#     - path: assets/
+#       platforms: [web]

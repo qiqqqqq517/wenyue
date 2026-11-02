@@ -34,6 +34,7 @@
 > · 第三十四轮：2026-11-01（v1.32.0 反「机器味」审计：引入 Hallmark Floor 硬底线）
 > · 第三十五轮：2026-11-01（v1.32.1 修导入失败：drift 迁移幂等自愈 + PDF 元数据 BOM + 导入失败回滚）
 > · 第三十六轮：2026-11-02（v1.32.2 修「导入后打不开」：PDF 阅读器三处缺陷；并查明中文路径必须走 ASCII junction 构建与测试）
+> · 第三十七轮：2026-11-02（v1.32.3 全区域框选与批注：引用/列表/代码块/表格/嵌套内容接线 + 书库进度恒 0% 修复 + pdfrx 鼠标拖选补丁）
 > 本文档面向下一位开发者（或下一次会话），目标是 5 分钟内恢复全部上下文。
 
 ---
@@ -57,7 +58,30 @@
 
 ## 1. 一句话现状
 
-**代码全部完成且质量达标**（`dart analyze lib test` 0 问题、`flutter test` 270/270 通过）。
+**代码全部完成且质量达标**（`dart analyze lib test integration_test` 0 问题、
+`flutter test --concurrency=1` **285/285** 通过、PDF 选择集成测试 3/3 通过）。
+第三十七轮（v1.32.3）**修掉「无法框选字 / 进度条恒 0% / 批注」三条用户报障**：
+① **文本层全区域可选可批注** —— 引用块、列表（含嵌套）、代码块、表格单元格此前
+要么没接选择回调、要么退化成不可选的纯 `Text`，选中后弹不出批注条、也建不了批注。
+现在 `_QuoteView`/`_ListView2` 递归走 `_BlockView`（删除 `_StaticTextBlock`），
+`_CodeBlockView`/`_TableCellText` 接 `SelectableText.onSelectionChanged`，
+并补上代码块与表格的高亮回显。**偏移契约**是这轮的核心：引用/列表的子块是用
+**子构建器**解析的，子块 `TextBlock.start` 是子构建器坐标（从 0 起），
+直接当全局偏移会串位；契约（父块序列化 → 子块偏移）落在
+`lib/services/text/text_document.dart` 的 `QuoteStreamOffsets/ListStreamOffsets/
+TableStreamOffsets`，由 `test/block_stream_offsets_test.dart` 对拍锁住。
+② **书库进度恒 0%** —— `reader_page.dart` 的进度落库是**纯尾部防抖**：位置每变一次
+就 cancel 重排 2 秒定时器，连续滚动时永不到期、一次都不落库；`dispose()` 又直接
+cancel 丢弃待写值。改为 `lib/services/reading/progress_writer.dart`（防抖 + **最大等待
+10s 窗口** + 退出冲刷），由 `test/progress_writer_test.dart` 锁住。
+③ **PDF 鼠标拖拽选不中** —— 实测（Windows 集成测试）定位为 pdfrx 2.4.7 的
+`_onTextPanStart` 首行 `if (_isInteractionGoingOn) return;`：该标志由**鼠标滚轮**
+置位、300ms 后复位，于是「滚轮后立刻拖选」被整个吞掉（既不出选区也不平移），
+而读 PDF 必用滚轮 ⇒ 用户感知为「根本选不中」。纯参数层无解，按 `third_party/`
+既有先例打 vendored 补丁（删守卫 + 命中余量 3.0→8.0 文档像素），
+清单见 `third_party/pdfrx-2.4.7-patched/PATCHES.md`，判据见
+`integration_test/pdf_text_selection_test.dart`（三场景：直接拖选 / 滚轮后<300ms /
+滚轮后>300ms，补丁前②为 false，补丁后三者全 true）。
 第三十六轮（v1.32.2）**修掉「导入后打不开」**：PDF 阅读器有三处真实缺陷，都因此前库一直是空的、
 PDF 阅读界面从未被真正打开过而一直没暴露 —— ① `PdfReaderView.initState` 里提前构造
 `PdfTextSearcher`，而它在构造函数中就订阅 `controller.document.events`，此时文档尚未就绪，

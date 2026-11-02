@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.32.2+35
+version: 1.32.3+36
 
 environment:
   sdk: ^3.13.1
@@ -59,6 +59,12 @@ dependencies:
 
 dev_dependencies:
   flutter_test:
+    sdk: flutter
+
+  # PDF 文本选择只能在真实设备上验证：`flutter test` 宿主没有 pdfium，
+  # 文档永远加载不了（PdfViewerController.isReady 恒为 false）。
+  # 故 PDF 选择相关回归走 integration_test + `-d windows`。
+  integration_test:
     sdk: flutter
 
   # The "flutter_lints" package below contains a set of recommended lints to
@@ -116,3 +122,8 @@ flutter:
 dependency_overrides:
   pdfrx_engine:
     path: third_party/pdfrx_engine-0.4.5-patched
+  # pdfrx 2.4.7 的鼠标拖选缺陷（滚轮后 300ms 内拖选被 _isInteractionOn 守卫吞掉，
+  # 命中余量 3.0 文档像素过紧）只能改库源码修，走同一套 vendored 补丁先例。
+  # 改动清单与实测数据见 third_party/pdfrx-2.4.7-patched/PATCHES.md
+  pdfrx:
+    path: third_party/pdfrx-2.4.7-patched

@@ -11,6 +11,7 @@ import '../../domain/entities/document.dart';
 import '../../domain/entities/reading_session.dart';
 import '../../readers/pdf/pdf_reader.dart';
 import '../../readers/reader_core.dart';
+import '../../services/reading/progress_writer.dart';
 import '../../services/text/annotation_guard.dart';
 import '../../services/text/toc_active.dart';
 import '../../readers/text/epub_reader.dart';
@@ -39,8 +40,20 @@ class _ReaderPageState extends State<ReaderPage> {
   LibraryDoc? _doc;
   String _filePath = '';
   List<Annotation> _annotations = const [];
-  Timer? _progressDebounce;
-  bool _closed = false;
+
+  /// 阅读进度落库调度（防抖 + 最大等待窗口 + 退出冲刷）。
+  ///
+  /// 旧实现是**纯尾部防抖**：位置每变化一次就 `cancel()` 旧定时器重新计时 2 秒，
+  /// 于是连续滚动时定时器永不到期、进度一次都不落库；`dispose()` 又直接
+  /// `cancel()` 丢弃待写值 ⇒ 书库卡片的进度条与百分比长期停在 0%。
+  /// 调度逻辑抽到 [ProgressWriter] 以便对「连续滚动」「退出冲刷」出回归测试。
+  late final ProgressWriter _progress = ProgressWriter(
+    save: (position, progress) => _c.libraryRepo.saveProgress(
+      widget.docId,
+      lastPositionJson: position.encode(),
+      progress: progress,
+    ),
+  );
   bool _tocOpen = false;
   bool _searchOpen = false;
 
@@ -79,8 +92,10 @@ class _ReaderPageState extends State<ReaderPage> {
 
    @override
   void dispose() {
-    _closed = true;
-    _progressDebounce?.cancel();
+    // 退出前冲刷：待落库的最后一段阅读位置与进度必须写进书库，
+    // 否则书库卡片会停在上一次落库的旧值（旧实现直接 cancel 丢弃）。
+    _progress.flush();
+    _progress.cancel();
     _recordSession();
     _searchController.dispose();
     _pageController.dispose();
@@ -147,15 +162,7 @@ class _ReaderPageState extends State<ReaderPage> {
     if (_tocOpen) {
       setState(() {});
     }
-    _progressDebounce?.cancel();
-    _progressDebounce = Timer(const Duration(seconds: 2), () async {
-      if (_closed || _doc == null) return;
-      await _c.libraryRepo.saveProgress(
-        _doc!.id,
-        lastPositionJson: position.encode(),
-        progress: progress,
-      );
-    });
+    _progress.submit(position, progress);
   }
 
   Future<void> _insertAnnotation({

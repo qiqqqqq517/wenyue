@@ -10,7 +10,7 @@
 | drift | 2.35.3 | MIT | SQLite ORM（书库/批注/同步元数据；参数绑定查询） |
 | drift_flutter | 0.3.1 | MIT | drift 跨平台数据库打开方式 |
 | sqlite3_flutter_libs | 0.6.0+eol | MIT | 各平台自带 SQLite 原生库 |
-| pdfrx | 2.4.7 | MIT | PDF 阅读组件（缩放/选择/搜索/目录） |
+| pdfrx | 2.4.7+patched.1 | MIT | PDF 阅读组件（缩放/选择/搜索/目录）；**仓库内补丁版**，见下 |
 | pdfrx_engine | 0.4.5 | MIT | pdfrx 底层引擎 |
 | pdfium_dart | 0.2.5 | MIT | 构建期下载预编译 pdfium（native assets 钩子） |
 | pdfium | chromium/8125 | Apache-2.0（含 BSD 风格第三方条款） | PDF 渲染引擎（bblanchon/pdfium-binaries 预编译版） |
@@ -43,6 +43,16 @@
 - **pdfrx 钉在 2.4.7 / engine 0.4.5**：0.9.0 起的 pdfium_dart 需要
   本机 C 工具链（native assets 编译门库），为降低构建门槛采用
   预编译 pdfium 下载路线（0.4.5）。待统一 C 工具链后可再升级。
+
+## 修改过的第三方源码（vendored patch）
+
+两处依赖以仓库内补丁版接入（`dependency_overrides` → `third_party/`），
+均为上游源码的**修改版**，保留上游 MIT 许可与版权声明（各目录内 `LICENSE`）：
+
+| 目录 | 上游版本 | 修改原因 |
+| --- | --- | --- |
+| `third_party/pdfrx_engine-0.4.5-patched` | pdfrx_engine 0.4.5 | 上游存在跨 `await` 的空安全编译错误，无法直接编译 |
+| `third_party/pdfrx-2.4.7-patched` | pdfrx 2.4.7 | ① 滚轮后 300ms 内鼠标拖选被上游 `_isInteractionGoingOn` 守卫整个吞掉（读 PDF 必用滚轮，表现为「鼠标拖拽根本选不中字」）；② 命中测试余量 3.0 文档像素过紧，与同文件 8.0 的口径不一致。改动与实测数据见 `third_party/pdfrx-2.4.7-patched/PATCHES.md` |
 
 ## 运行时说明
 

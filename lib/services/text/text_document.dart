@@ -105,6 +105,75 @@ class HrBlock extends TextBlock {
   String get plainText => '';
 }
 
+/// 父块序列化 → 子块偏移的换算契约。
+///
+/// 引用块与列表块的子块是用**子构建器**解析的：子构建器从 0 起分配区间，
+/// 因此子块自身的 [TextBlock.start] 是子构建器坐标，**不能**当全局偏移用。
+/// 父块再按自己的规则把子块纯文本重新拼进父流：
+///
+/// - [QuoteBlock.plainText]：子块之间插入 `'\n'`；
+/// - [ListBlock.plainText]：每项前插 `'• '`（无序）或 `'n. '`（有序），
+///   项内子块**直接首尾相连**，项之间插入 `'\n'`；
+/// - [TableBlock.plainText]：行内单元格用 `'\t'` 连接，行之间用 `'\n'` 连接。
+///
+/// 这里一律返回**相对本块纯文本的偏移**（不含 [TextBlock.start]）：
+/// 渲染层拿到的是调用方传入的全局 base（顶层块 = `block.start`，
+/// 嵌套块 = 父块换算结果），两者相加才是文档字符流全局偏移。
+/// 直接吃 `block.start` 会在「引用里套列表」这类嵌套下串坐标。
+///
+/// 解析器（md_document / xhtml_document）必须与之一致，
+/// 由 `test/block_stream_offsets_test.dart` 对拍锁住。
+extension QuoteStreamOffsets on QuoteBlock {
+  /// 第 [index] 个子块纯文本在 [QuoteBlock.plainText] 中的起点。
+  int childOffset(int index) {
+    var offset = 0;
+    for (var i = 0; i < index && i < children.length; i++) {
+      offset += children[i].plainText.length + 1;
+    }
+    return offset;
+  }
+}
+
+extension ListStreamOffsets on ListBlock {
+  /// 第 [itemIndex] 项的前缀（与 [ListBlock.plainText] 完全一致）。
+  String prefixOf(int itemIndex) => ordered ? '${itemIndex + 1}. ' : '• ';
+
+  /// 第 [itemIndex] 项内所有子块拼接后的长度（不含前缀）。
+  int itemTextLength(int itemIndex) =>
+      items[itemIndex].fold<int>(0, (sum, b) => sum + b.plainText.length);
+
+  /// 第 [itemIndex] 项第 [childIndex] 个子块在 [ListBlock.plainText] 中的起点。
+  int childOffset(int itemIndex, int childIndex) {
+    var offset = 0;
+    for (var i = 0; i < itemIndex && i < items.length; i++) {
+      offset += prefixOf(i).length + itemTextLength(i) + 1;
+    }
+    offset += prefixOf(itemIndex).length;
+    for (var j = 0; j < childIndex && j < items[itemIndex].length; j++) {
+      offset += items[itemIndex][j].plainText.length;
+    }
+    return offset;
+  }
+}
+
+extension TableStreamOffsets on TableBlock {
+  /// 第 [row] 行第 [column] 列单元格文本在 [TableBlock.plainText] 中的起点。
+  int cellOffset(int row, int column) {
+    var offset = 0;
+    for (var r = 0; r < row && r < rows.length; r++) {
+      final cells = rows[r].fold<int>(0, (sum, c) => sum + c.length);
+      // join('\t')：n 个单元格之间有 n-1 个制表符；空行则是 0 个。
+      offset += cells + (rows[r].length - 1).clamp(0, 1 << 20) + 1;
+    }
+    if (row < rows.length) {
+      for (var c = 0; c < column && c < rows[row].length; c++) {
+        offset += rows[row][c].length + 1;
+      }
+    }
+    return offset;
+  }
+}
+
 /// 解析完成的文本文档。
 class TextDocument {
   final List<TextBlock> blocks;

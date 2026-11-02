@@ -368,14 +368,21 @@ class _BlockView extends StatelessWidget {
   final void Function(int base, int start, int end, String text) onSelection;
 
   /// 与本块相交的高亮（换算为块内坐标）。
+  ///
+  /// 用 `base + 块内长度` 而不是 `block.end`：引用/列表里的嵌套子块，
+  /// 其 `start/end` 是**子构建器坐标**，与全局 [base] 不同源，
+  /// 混用会算出负长度（`.clamp(0, 负数)` 直接抛 ArgumentError）。
   List<(int, int, Color)> get _localHighlights {
+    final length = block.plainText.length;
     final out = <(int, int, Color)>[];
     for (final h in highlights) {
-      if (h.end <= base || h.start >= block.end) continue;
-      final s = (h.start - base).clamp(0, block.end - base);
-      final e = (h.end - base).clamp(0, block.end - base);
+      if (h.end <= base || h.start >= base + length) continue;
+      final s = (h.start - base).clamp(0, length);
+      final e = (h.end - base).clamp(0, length);
       if (e > s) out.add((s, e, highlightSwatch(h.colorName)));
     }
+    // 按起点排序：底纹按游标顺序切区间，乱序会把区间切错。
+    out.sort((a, b) => a.$1.compareTo(b.$1));
     return out;
   }
 
@@ -415,13 +422,20 @@ class _BlockView extends StatelessWidget {
       case ImageBlock b:
         return _ImageView(block: b, resolveImage: resolveImage);
       case TableBlock b:
-        return _TableView(block: b);
+        return _TableView(
+          block: b,
+          base: base,
+          highlights: highlights,
+          onSelection: onSelection,
+        );
       case QuoteBlock b:
         return _QuoteView(
           block: b,
           base: base,
           highlights: highlights,
           style: style,
+          resolveImage: resolveImage,
+          onSelection: onSelection,
         );
       case ListBlock b:
         return _ListView2(
@@ -429,6 +443,8 @@ class _BlockView extends StatelessWidget {
           base: base,
           highlights: highlights,
           style: style,
+          resolveImage: resolveImage,
+          onSelection: onSelection,
         );
       case HrBlock _:
         return const Padding(
@@ -675,24 +691,68 @@ class _CodeBlockViewState extends State<_CodeBlockView> {
     };
   }
 
+  /// 词法着色 + 高亮底纹的富文本片段。
+  ///
+  /// 先按词法切成 `(start, end, style)`，再按高亮区间二次切分：
+  /// [widget.highlights] 是代码块内局部坐标。
   List<InlineSpan> _spans(ThemeData theme) {
     final code = widget.code;
-    final spans = <InlineSpan>[];
+    final styled = <(int, int, TextStyle)>[];
     var cursor = 0;
     for (final t in _tokens) {
       if (t.start > cursor) {
-        spans.add(TextSpan(text: code.substring(cursor, t.start)));
+        styled.add((cursor, t.start, const TextStyle()));
       }
-      spans.add(TextSpan(
-        text: code.substring(t.start, t.end),
-        style: _tokenStyle(t.kind, theme),
-      ));
+      styled.add((t.start, t.end, _tokenStyle(t.kind, theme)));
       cursor = t.end;
     }
     if (cursor < code.length) {
-      spans.add(TextSpan(text: code.substring(cursor)));
+      styled.add((cursor, code.length, const TextStyle()));
+    }
+    final highlights = [...widget.highlights]
+      ..sort((a, b) => a.$1.compareTo(b.$1));
+    final spans = <InlineSpan>[];
+    for (final (start, end, style) in styled) {
+      var pos = start;
+      for (final (hs, he, color) in highlights) {
+        if (he <= pos || hs >= end) continue;
+        final s = hs < pos ? pos : hs;
+        final e = he > end ? end : he;
+        if (s > pos) {
+          spans.add(TextSpan(text: code.substring(pos, s), style: style));
+        }
+        spans.add(TextSpan(
+          text: code.substring(s, e),
+          style: style.copyWith(
+            backgroundColor: color.withValues(alpha: 0.45),
+          ),
+        ));
+        pos = e;
+      }
+      if (pos < end) {
+        spans.add(TextSpan(text: code.substring(pos, end), style: style));
+      }
     }
     return spans;
+  }
+
+  /// 把富文本选区（代码内局部下标）上报为全局偏移。
+  ///
+  /// 此前 [_CodeBlockView.onSelection] 被声明并传入却从未使用，
+  /// 代码块里选中文字不弹批注条。
+  void _reportSelection(TextSelection sel) {
+    final code = widget.code;
+    if (sel.isCollapsed) {
+      widget.onSelection(widget.base, 0, 0, '');
+      return;
+    }
+    final s = sel.start.clamp(0, code.length);
+    final e = sel.end.clamp(0, code.length);
+    if (e <= s) {
+      widget.onSelection(widget.base, 0, 0, '');
+      return;
+    }
+    widget.onSelection(widget.base, s, e, code.substring(s, e));
   }
 
   @override
@@ -730,6 +790,7 @@ class _CodeBlockViewState extends State<_CodeBlockView> {
                 ),
                 children: _spans(theme),
               ),
+              onSelectionChanged: (sel, _) => _reportSelection(sel),
             ),
           ],
         ),
@@ -910,9 +971,19 @@ class _ZoomableImageState extends State<ZoomableImageViewer> {
 // ---------------- 表格 ----------------
 
 class _TableView extends StatelessWidget {
-  const _TableView({required this.block});
+  const _TableView({
+    required this.block,
+    required this.base,
+    required this.highlights,
+    required this.onSelection,
+  });
 
   final TableBlock block;
+
+  /// 本表格纯文本在文档字符流中的全局起点（嵌套时由父块换算）。
+  final int base;
+  final List<HighlightRange> highlights;
+  final void Function(int base, int start, int end, String text) onSelection;
 
   @override
   Widget build(BuildContext context) {
@@ -939,12 +1010,16 @@ class _TableView extends StatelessWidget {
                   for (var c = 0; c < colCount; c++)
                     Padding(
                       padding: const EdgeInsets.all(8),
-                      child: SelectableText(
-                        c < block.rows[i].length ? block.rows[i][c] : '',
+                      child: _TableCellText(
+                        text: c < block.rows[i].length ? block.rows[i][c] : '',
+                        // 单元格正文在流中的全局起点（表格内每格可独立选中）
+                        cellBase: base + block.cellOffset(i, c),
+                        highlights: highlights,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           fontWeight:
                               i == 0 && block.hasHeader ? FontWeight.w700 : null,
                         ),
+                        onSelection: onSelection,
                       ),
                     ),
                 ],
@@ -952,6 +1027,91 @@ class _TableView extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// 表格单元格：可框选、可回显高亮、可新建批注。
+///
+/// 单元格在 [TableBlock.plainText] 中占一段连续区间（`'\t'` / `'\n'` 分隔），
+/// 因此选区局部下标 + [cellBase] 即全局偏移。
+class _TableCellText extends StatelessWidget {
+  const _TableCellText({
+    required this.text,
+    required this.cellBase,
+    required this.highlights,
+    required this.style,
+    required this.onSelection,
+  });
+
+  final String text;
+  final int cellBase;
+  final List<HighlightRange> highlights;
+  final TextStyle? style;
+  final void Function(int base, int start, int end, String text) onSelection;
+
+  /// 与本单元格相交的高亮（换算为格内局部区间，按起点排序）。
+  List<(int, int, Color)> get _localHighlights {
+    final end = cellBase + text.length;
+    final out = <(int, int, Color)>[];
+    for (final h in highlights) {
+      if (h.end <= cellBase || h.start >= end) continue;
+      final s = (h.start - cellBase).clamp(0, text.length);
+      final e = (h.end - cellBase).clamp(0, text.length);
+      if (e > s) out.add((s, e, highlightSwatch(h.colorName)));
+    }
+    out.sort((a, b) => a.$1.compareTo(b.$1));
+    return out;
+  }
+
+  void _reportSelection(TextSelection sel) {
+    if (sel.isCollapsed) {
+      onSelection(cellBase, 0, 0, '');
+      return;
+    }
+    final s = sel.start.clamp(0, text.length);
+    final e = sel.end.clamp(0, text.length);
+    if (e <= s) {
+      onSelection(cellBase, 0, 0, '');
+      return;
+    }
+    onSelection(cellBase, s, e, text.substring(s, e));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (text.isEmpty) return SelectableText('', style: style);
+    final local = _localHighlights;
+    // 无高亮时用纯文本构造：`SelectableText.data` 保持非空（既有渲染契约与
+    // test/text_doc_view_widget_test 都按 data 取文本），且省掉富文本开销。
+    if (local.isEmpty) {
+      return SelectableText(
+        text,
+        style: style,
+        onSelectionChanged: (sel, _) => _reportSelection(sel),
+      );
+    }
+    final spans = <InlineSpan>[];
+    var cursor = 0;
+    for (final (s, e, color) in local) {
+      if (s > cursor) {
+        spans.add(TextSpan(text: text.substring(cursor, s)));
+      }
+      final cs = s < cursor ? cursor : s;
+      spans.add(TextSpan(
+        text: text.substring(cs, e),
+        style: TextStyle(
+          backgroundColor: color.withValues(alpha: 0.45),
+        ),
+      ));
+      cursor = e;
+    }
+    if (cursor < text.length) {
+      spans.add(TextSpan(text: text.substring(cursor)));
+    }
+    return SelectableText.rich(
+      TextSpan(style: style, children: spans),
+      onSelectionChanged: (sel, _) => _reportSelection(sel),
     );
   }
 }
@@ -964,12 +1124,18 @@ class _QuoteView extends StatelessWidget {
     required this.base,
     required this.highlights,
     required this.style,
+    required this.resolveImage,
+    required this.onSelection,
   });
 
   final QuoteBlock block;
+
+  /// 本引用块纯文本在文档字符流中的全局起点（嵌套时由父块换算）。
   final int base;
   final List<HighlightRange> highlights;
   final ReaderTextStyle style;
+  final ImageBytesResolver? resolveImage;
+  final void Function(int base, int start, int end, String text) onSelection;
 
   @override
   Widget build(BuildContext context) {
@@ -986,12 +1152,18 @@ class _QuoteView extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            for (final child in block.children)
-              _StaticTextBlock(
-                block: child,
-                base: base,
-                highlights: highlights,
+            // 子块递归走 _BlockView：子块自身的 start 是子构建器坐标，
+            // 全局基点必须由父块序列化公式换算（见 QuoteStreamOffsets）。
+            // 递归后嵌套的引用/列表/代码块/表格同样可选可批注。
+            for (var i = 0; i < block.children.length; i++)
+              _BlockView(
+                key: ValueKey('quote-$i-${block.children[i].plainText.hashCode}'),
+                block: block.children[i],
+                base: base + block.childOffset(i),
                 style: style,
+                highlights: highlights,
+                resolveImage: resolveImage,
+                onSelection: onSelection,
               ),
           ],
         ),
@@ -1008,12 +1180,18 @@ class _ListView2 extends StatelessWidget {
     required this.base,
     required this.highlights,
     required this.style,
+    required this.resolveImage,
+    required this.onSelection,
   });
 
   final ListBlock block;
+
+  /// 本列表纯文本在文档字符流中的全局起点（嵌套时由父块换算）。
   final int base;
   final List<HighlightRange> highlights;
   final ReaderTextStyle style;
+  final ImageBytesResolver? resolveImage;
+  final void Function(int base, int start, int end, String text) onSelection;
 
   @override
   Widget build(BuildContext context) {
@@ -1039,12 +1217,16 @@ class _ListView2 extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        for (final child in block.items[i])
-                          _StaticTextBlock(
-                            block: child,
-                            base: base,
-                            highlights: highlights,
+                        for (var j = 0; j < block.items[i].length; j++)
+                          _BlockView(
+                            key: ValueKey(
+                                'li-$i-$j-${block.items[i][j].plainText.hashCode}'),
+                            block: block.items[i][j],
+                            base: base + block.childOffset(i, j),
                             style: style,
+                            highlights: highlights,
+                            resolveImage: resolveImage,
+                            onSelection: onSelection,
                           ),
                       ],
                     ),
@@ -1058,86 +1240,6 @@ class _ListView2 extends StatelessWidget {
   }
 }
 
-/// 静态（不可选择）文本块：引用与列表内使用，支持高亮底纹显示。
-class _StaticTextBlock extends StatelessWidget {
-  const _StaticTextBlock({
-    required this.block,
-    required this.base,
-    required this.highlights,
-    required this.style,
-  });
-
-  final TextBlock block;
-  final int base;
-  final List<HighlightRange> highlights;
-  final ReaderTextStyle style;
-
-  @override
-  Widget build(BuildContext context) {
-    final runs = switch (block) {
-      ParagraphBlock b => b.runs,
-      HeadingBlock b => b.runs,
-      _ => null,
-    };
-    if (runs == null) {
-      // 嵌套复杂内容退化为纯文本
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Text(
-          block.plainText,
-          style: TextStyle(
-            fontSize: style.fontSize,
-            height: style.lineHeight,
-            fontFamily: style.fontFamily.isEmpty ? null : style.fontFamily,
-          ),
-        ),
-      );
-    }
-    final children = <InlineSpan>[];
-    var pos = 0;
-    for (final run in runs) {
-      final start = pos;
-      final end = pos + run.text.length;
-      pos = end;
-      var cursor = start;
-      final baseStyle = TextStyle(
-        fontSize: style.fontSize,
-        height: style.lineHeight,
-        fontFamily: style.fontFamily.isEmpty ? null : style.fontFamily,
-        fontWeight: run.bold ? FontWeight.w700 : null,
-        fontStyle: run.italic ? FontStyle.italic : null,
-        decoration: run.href != null ? TextDecoration.underline : null,
-      );
-      for (final h in highlights) {
-        if (h.end <= base + cursor || h.start >= base + end) continue;
-        final s = (h.start - base).clamp(start, end);
-        final e = (h.end - base).clamp(start, end);
-        if (s > cursor) {
-          children.add(TextSpan(text: run.text.substring(cursor - start, s - start), style: baseStyle));
-        }
-        children.add(TextSpan(
-          text: run.text.substring(s - start, e - start),
-          style: baseStyle.copyWith(
-            backgroundColor: highlightSwatch(h.colorName).withValues(alpha: 0.45),
-          ),
-        ));
-        cursor = e;
-      }
-      if (cursor < end) {
-        children.add(TextSpan(text: run.text.substring(cursor - start, end - start), style: baseStyle));
-      }
-    }
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: SelectableText.rich(
-        TextSpan(
-          style: TextStyle(
-            fontSize: style.fontSize,
-            color: context.tokens.textPrimary,
-          ),
-          children: children,
-        ),
-      ),
-    );
-  }
-}
+/// 引用块与列表块内的子块一律递归走 [_BlockView]，因此不再需要
+/// 独立的「静态文本块」：那种实现用 SelectableText.rich 但不接选择回调
+/// （选中后弹不出批注条），嵌套复杂内容还会退化成不可选的纯 Text。
