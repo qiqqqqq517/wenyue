@@ -22,6 +22,7 @@ import '../shortcuts.dart';
 import '../shortcuts_help.dart';
 import '../theme.dart';
 import '../widgets/glass.dart';
+import 'reading_progress.dart';
 
 /// 阅读器外壳：目录 / 搜索 / 批注 / 排版设置 / 进度保存。
 class ReaderPage extends StatefulWidget {
@@ -61,6 +62,12 @@ class _ReaderPageState extends State<ReaderPage> {
   int _pdfPage = 1;
   final TextEditingController _pageController = TextEditingController();
   final FocusNode _pageFocus = FocusNode();
+
+  /// 当前阅读进度（0..1），由各阅读器经 onProgress 上报。
+  ///
+  /// 此前只有「第 N/M 页」「第 x/y 章」这样的离散位置，没有连续进度指示；
+  /// 用户报「进度条问题」时，阅读器内其实**根本没有进度条**。
+  double _readProgress = 0;
 
   /// 本次阅读会话（打开→关闭记一条，供阅读统计）。
   DateTime? _sessionStart;
@@ -157,6 +164,11 @@ class _ReaderPageState extends State<ReaderPage> {
       if (!_pageFocus.hasFocus) {
         _pageController.text = '$_pdfPage';
       }
+    }
+    // 底部进度条需要连续跟随；进度变化超过 0.5% 才 setState，避免每帧重建。
+    if ((progress - _readProgress).abs() >= 0.005 ||
+        (progress >= 1 && _readProgress < 1)) {
+      setState(() => _readProgress = progressBarValue(progress));
     }
     // 大纲当前章节高亮：位置变化即刷新
     if (_tocOpen) {
@@ -775,6 +787,7 @@ class _ReaderPageState extends State<ReaderPage> {
                       ),
                       if (isEpub) _epubNavBar(),
                       if (isPdf) _pdfNavBar(),
+                      if (!isEpub && !isPdf) _textNavBar(),
                     ],
                   ),
                 ),
@@ -921,11 +934,22 @@ class _ReaderPageState extends State<ReaderPage> {
               icon: const Icon(Icons.chevron_left),
             ),
             Expanded(
-              child: Center(
-                child: Text(
-                  chapterCount > 0 ? '第 ${current + 1}/$chapterCount 章' : '',
-                  style: text.labelSmall?.copyWith(color: t.textTertiary),
-                ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    chapterCount > 0
+                        ? '第 ${current + 1}/$chapterCount 章 · '
+                            '${formatProgressPercent(chapterProgress(current, chapterCount))}'
+                        : '',
+                    style: text.labelSmall?.copyWith(color: t.textTertiary),
+                  ),
+                  const SizedBox(height: 4),
+                  _ReaderProgressBar(
+                    value: chapterProgress(current, chapterCount),
+                    width: 200,
+                  ),
+                ],
               ),
             ),
             _ReaderBarAction(
@@ -970,46 +994,138 @@ class _ReaderPageState extends State<ReaderPage> {
               icon: const Icon(Icons.zoom_out),
             ),
             Expanded(
-              child: Center(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '第',
-                      style: text.labelSmall?.copyWith(color: t.textTertiary),
-                    ),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 64,
-                      child: TextField(
-                        controller: _pageController,
-                        focusNode: _pageFocus,
-                        textAlign: TextAlign.center,
-                        keyboardType: TextInputType.number,
-                        style: text.labelMedium?.copyWith(color: t.textPrimary),
-                        decoration: const InputDecoration(
-                          isDense: true,
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 8,
-                          ),
-                        ),
-                        onSubmitted: _onPageSubmitted,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '第',
+                        style: text.labelSmall?.copyWith(color: t.textTertiary),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      pageCount > 0 ? '/ $pageCount 页' : '/ ? 页',
-                      style: text.labelSmall?.copyWith(color: t.textTertiary),
-                    ),
-                  ],
-                ),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 64,
+                        child: TextField(
+                          controller: _pageController,
+                          focusNode: _pageFocus,
+                          textAlign: TextAlign.center,
+                          keyboardType: TextInputType.number,
+                          style:
+                              text.labelMedium?.copyWith(color: t.textPrimary),
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 8,
+                            ),
+                          ),
+                          onSubmitted: _onPageSubmitted,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        pageCount > 0 ? '/ $pageCount 页' : '/ ? 页',
+                        style: text.labelSmall?.copyWith(color: t.textTertiary),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        formatProgressPercent(
+                          pageProgress(_pdfPage, pageCount),
+                        ),
+                        style: text.labelSmall?.copyWith(
+                          color: t.textTertiary,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  _ReaderProgressBar(
+                    value: pageProgress(_pdfPage, pageCount),
+                    width: 200,
+                  ),
+                ],
               ),
             ),
             _ReaderBarAction(
               tooltip: '放大',
               onPressed: () => pdf?.zoomIn(),
               icon: const Icon(Icons.zoom_in),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Markdown / TXT 的底部进度条（这两类此前没有任何进度指示）。
+  Widget _textNavBar() {
+    final t = context.tokens;
+    final text = Theme.of(context).textTheme;
+    return SafeArea(
+      top: false,
+      child: GlassBar(
+        blur: 20,
+        height: 52,
+        borderRadius: AppRadius.card,
+        showTopRim: true,
+        showBottomRim: false,
+        showShadow: true,
+        margin: const EdgeInsets.fromLTRB(
+          AppSpacing.page,
+          0,
+          AppSpacing.page,
+          AppSpacing.cardGap,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            Expanded(
+              child: _ReaderProgressBar(
+                value: _readProgress,
+                width: double.infinity,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              formatProgressPercent(_readProgress),
+              style: text.labelSmall?.copyWith(
+                color: t.textTertiary,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 阅读器底部的细进度条（跟随阅读位置，非交互）。
+///
+/// 用 token 取色：轨道 `fill`、已读段 `accent`，与书库卡片进度条同一语义。
+class _ReaderProgressBar extends StatelessWidget {
+  const _ReaderProgressBar({required this.value, required this.width});
+
+  final double value;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    return SizedBox(
+      width: width,
+      height: 4,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadius.micro),
+        child: Stack(
+          children: [
+            Positioned.fill(child: ColoredBox(color: t.fill)),
+            FractionallySizedBox(
+              widthFactor: progressBarValue(value),
+              child: ColoredBox(color: t.accent),
             ),
           ],
         ),
