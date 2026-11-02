@@ -158,6 +158,26 @@ class _ReaderPageState extends State<ReaderPage> {
     );
   }
 
+/// 进度条 seek：外壳把目标进度换算成各格式的位置并跳转。
+  ///
+  /// 跳转后阅读器会上报新位置，经 `_onProgress` 驱动进度条与防抖落库。
+  void _onSeek(double fraction) {
+    final handle = _handle;
+    if (handle == null) return;
+    final f = fraction.isFinite ? fraction.clamp(0.0, 1.0) : 0.0;
+    handle.seekToFraction(f);
+    // PDF 的页码上报要等控制器回调；这里先给一个本地即时反馈。
+    if (_doc?.format == DocFormat.pdf) {
+      final page = pageForFraction(f, handle.seekScale);
+      if (page != _pdfPage) {
+        setState(() => _pdfPage = page);
+        if (!_pageFocus.hasFocus) {
+          _pageController.text = '$_pdfPage';
+        }
+      }
+    }
+  }
+
   void _onProgress(DocPosition position, double progress) {
     if (_doc?.format == DocFormat.pdf && position.index != _pdfPage) {
       _pdfPage = position.index;
@@ -945,9 +965,14 @@ class _ReaderPageState extends State<ReaderPage> {
                     style: text.labelSmall?.copyWith(color: t.textTertiary),
                   ),
                   const SizedBox(height: 4),
-                  _ReaderProgressBar(
+                  ReaderProgressBar(
                     value: chapterProgress(current, chapterCount),
                     width: 200,
+                    onSeek: _onSeek,
+                    tooltipFor: chapterCount <= 0
+                        ? null
+                        : (f) =>
+                            '跳到第 ${chapterIndexForFraction(f, chapterCount) + 1} 章',
                   ),
                 ],
               ),
@@ -1042,9 +1067,13 @@ class _ReaderPageState extends State<ReaderPage> {
                     ],
                   ),
                   const SizedBox(height: 4),
-                  _ReaderProgressBar(
+                  ReaderProgressBar(
                     value: pageProgress(_pdfPage, pageCount),
                     width: 200,
+                    onSeek: _onSeek,
+                    tooltipFor: pageCount <= 0
+                        ? null
+                        : (f) => '跳到第 ${pageForFraction(f, pageCount)} 页',
                   ),
                 ],
               ),
@@ -1083,9 +1112,11 @@ class _ReaderPageState extends State<ReaderPage> {
         child: Row(
           children: [
             Expanded(
-              child: _ReaderProgressBar(
+              child: ReaderProgressBar(
                 value: _readProgress,
                 width: double.infinity,
+                onSeek: _onSeek,
+                tooltipFor: formatProgressPercent,
               ),
             ),
             const SizedBox(width: 12),
@@ -1103,36 +1134,7 @@ class _ReaderPageState extends State<ReaderPage> {
   }
 }
 
-/// 阅读器底部的细进度条（跟随阅读位置，非交互）。
-///
-/// 用 token 取色：轨道 `fill`、已读段 `accent`，与书库卡片进度条同一语义。
-class _ReaderProgressBar extends StatelessWidget {
-  const _ReaderProgressBar({required this.value, required this.width});
-
-  final double value;
-  final double width;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.tokens;
-    return SizedBox(
-      width: width,
-      height: 4,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppRadius.micro),
-        child: Stack(
-          children: [
-            Positioned.fill(child: ColoredBox(color: t.fill)),
-            FractionallySizedBox(
-              widthFactor: progressBarValue(value),
-              child: ColoredBox(color: t.accent),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+/// 进度条组件在 `reading_progress.dart`（ReaderProgressBar），此处不再内联。
 
 /// 顶栏 / 底部导航条上的图标按钮：36pt 圆形热区，选中态主色淡底。
 class _ReaderBarAction extends StatelessWidget {

@@ -150,4 +150,17 @@ class TxtReaderViewState extends State<TxtReaderView> implements ReaderHandle {
       _viewKey.currentState?.jumpToOffset(item.streamOffset!);
     }
   }
+
+  @override
+  void seekToFraction(double fraction) {
+    final doc = _doc;
+    if (doc == null || doc.plainText.isEmpty) return;
+    final f = fraction.isFinite ? fraction.clamp(0.0, 1.0) : 0.0;
+    _viewKey.currentState?.jumpToOffset(
+      (f * doc.plainText.length).round().clamp(0, doc.plainText.length),
+    );
+  }
+
+  @override
+  int get seekScale => _doc?.plainText.length ?? 0;
 }

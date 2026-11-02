@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wenyue/ui/reader/reading_progress.dart';
@@ -114,6 +115,144 @@ void main() {
           .widgetList<FractionallySizedBox>(find.byType(FractionallySizedBox))
           .first;
       expect(bar.widthFactor, 1.0);
+    });
+
+    testWidgets('ReaderProgressBar 点击热区按比例回报 seek 位置', (tester) async {
+      final seeks = <double>[];
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 200,
+              child: ReaderProgressBar(
+                value: 0.1,
+                width: 200,
+                onSeek: seeks.add,
+              ),
+            ),
+          ),
+        ),
+      ));
+      final box = tester.getRect(find.byType(ReaderProgressBar));
+      // 点热区 25% 处 → 回报 ≈0.25
+      await tester.tapAt(Offset(box.left + box.width * 0.25, box.center.dy));
+      await tester.pump();
+      expect(seeks, hasLength(1));
+      expect(seeks.single, closeTo(0.25, 0.02));
+
+      // 拖拽：分段移动超过 pan 阈值后松手，回报一次（拖拽中仅预览不落定）
+      seeks.clear();
+      final g = await tester.startGesture(
+        Offset(box.left + box.width * 0.6, box.center.dy),
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pump();
+      await g.moveTo(Offset(box.left + box.width * 0.7, box.center.dy));
+      await tester.pump();
+      await g.moveTo(Offset(box.left + box.width * 0.8, box.center.dy));
+      await tester.pump();
+      expect(seeks, isEmpty, reason: '拖拽过程中不应回报 seek');
+      await g.up();
+      await tester.pumpAndSettle();
+      expect(seeks, hasLength(1));
+      expect(seeks.single, closeTo(0.8, 0.05));
+    });
+
+    testWidgets('onSeek 为空时进度条只读：点击不回报、不抛', (tester) async {
+      await tester.pumpWidget(const MaterialApp(
+        home: Scaffold(
+          body: Center(child: ReaderProgressBar(value: 0.4, width: 200)),
+        ),
+      ));
+      await tester.tap(find.byType(ReaderProgressBar));
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('悬停出提示：按位置换算出目标页码文案', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: ReaderProgressBar(
+              value: 0.1,
+              width: 200,
+              onSeek: (_) {},
+              tooltipFor: (f) => '跳到第 ${pageForFraction(f, 100)} 页',
+            ),
+          ),
+        ),
+      ));
+      final box = tester.getRect(find.byType(ReaderProgressBar));
+      // 真实的悬停事件（startGesture 只发按下/移动，不会产生 PointerHoverEvent）
+      final p = TestPointer(1, PointerDeviceKind.mouse);
+      final at = Offset(box.left + box.width * 0.5, box.center.dy);
+      await tester.sendEventToBinding(p.hover(at));
+      await tester.pump();
+      // MouseRegion.onHover 触发 setState 后组件树里应挂上 Tooltip，
+      // 且文案按位置换算为「第 50 页」（100 页取上整）。
+      final tooltips = tester.widgetList<Tooltip>(find.byType(Tooltip)).toList();
+      expect(tooltips, isNotEmpty, reason: '悬停后未挂载 Tooltip');
+      expect(tooltips.first.message, '跳到第 50 页',
+          reason: '悬停提示未按位置换算页码');
+      // 让 Tooltip 真正显示（waitDuration = 0，仍需要一个 push 帧）
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('跳到第 50 页'), findsWidgets);
+
+      // 无 tooltipFor 时不应挂载 Tooltip
+      await tester.pumpWidget(const MaterialApp(
+        home: Scaffold(
+          body: Center(child: ReaderProgressBar(value: 0.1, width: 200)),
+        ),
+      ));
+      await tester.pump();
+      expect(find.byType(Tooltip), findsNothing);
+    });
+  });
+
+  group('seek 换算（进度条点击/拖拽）', () {
+    test('fractionFromPosition 按横向位置换算并 clamp', () {
+      expect(fractionFromPosition(50, 200), 0.25);
+      expect(fractionFromPosition(0, 200), 0.0);
+      expect(fractionFromPosition(200, 200), 1.0);
+      expect(fractionFromPosition(-30, 200), 0.0);
+      expect(fractionFromPosition(999, 200), 1.0);
+      // 非法宽度/坐标不抛
+      expect(fractionFromPosition(10, 0), 0.0);
+      expect(fractionFromPosition(double.nan, 200), 0.0);
+    });
+
+    test('pageForFraction 与 pageProgress 往返一致', () {
+      // 点 0% → 第 1 页；点 100% → 末页
+      expect(pageForFraction(0, 11), 1);
+      expect(pageForFraction(1, 11), 11);
+      // 上整：点 50%（5.5 页）→ 第 6 页，且 pageProgress(6,11) ≥ 0.5
+      expect(pageForFraction(0.5, 11), 6);
+      expect(pageProgress(pageForFraction(0.5, 11), 11),
+          greaterThanOrEqualTo(0.5));
+      // 每个目标进度跳过去的页，其进度不低于所点比例（不跳过头）
+      for (final f in [0.1, 0.3, 0.7, 0.9]) {
+        final p = pageForFraction(f, 11);
+        expect(pageProgress(p, 11), greaterThanOrEqualTo(f),
+            reason: 'f=$f 跳到第 $p 页后进度反而变小');
+      }
+      // 非法规模回退第 1 页
+      expect(pageForFraction(0.5, 0), 1);
+    });
+
+    test('chapterIndexForFraction 与 chapterProgress 同口径', () {
+      expect(chapterIndexForFraction(0, 10), 0);
+      expect(chapterIndexForFraction(1, 10), 9);
+      expect(chapterIndexForFraction(0.5, 10), 5);
+      expect(chapterIndexForFraction(0.099, 10), 0);
+      expect(chapterIndexForFraction(0.0, 0), 0);
+    });
+
+    test('offsetForFraction 落在 [0, len] 且四舍五入', () {
+      expect(offsetForFraction(0.5, 100), 50);
+      expect(offsetForFraction(1, 100), 100);
+      expect(offsetForFraction(-0.2, 100), 0);
+      expect(offsetForFraction(double.nan, 100), 0);
+      expect(offsetForFraction(0.5, 0), 0);
     });
   });
 }

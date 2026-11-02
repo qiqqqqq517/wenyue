@@ -361,6 +361,19 @@ class PdfReaderViewState extends State<PdfReaderView>
     }
   }
 
+  @override
+  void seekToFraction(double fraction) {
+    if (!_controller.isReady) return;
+    final count = _controller.pageCount;
+    if (count <= 0) return;
+    final f = fraction.isFinite ? fraction.clamp(0.0, 1.0) : 0.0;
+    // 上整：点 0% → 第 1 页、点 100% → 末页（与外壳 pageForFraction 同口径）。
+    unawaited(_controller.goToPage(pageNumber: (f * count).ceil().clamp(1, count)));
+  }
+
+  @override
+  int get seekScale => pageCount;
+
   /// 缩放控制（外壳工具栏调用）。
   Future<void> zoomIn() async {
     if (!_controller.isReady) return;

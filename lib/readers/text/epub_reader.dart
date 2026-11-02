@@ -240,4 +240,20 @@ class EpubReaderViewState extends State<EpubReaderView>
       setState(() => _chapter = item.chapter!);
     }
   }
+
+  @override
+  void seekToFraction(double fraction) {
+    final count = chapterCount;
+    if (count <= 0) return;
+    final f = fraction.isFinite ? fraction.clamp(0.0, 1.0) : 0.0;
+    final idx = f >= 1
+        ? count - 1
+        : (f * count).floor().clamp(0, count - 1);
+    if (idx != _chapter) {
+      setState(() => _chapter = idx);
+    }
+  }
+
+  @override
+  int get seekScale => chapterCount;
 }

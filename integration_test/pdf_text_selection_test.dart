@@ -120,6 +120,54 @@ void main() {
 
     debugPrint('[PDF-SEL][SUMMARY] direct=$direct immediate=$immediate delayed=$delayed');
 
+    // 4) 跨页选择：从第 1 页拖到第 2 页（学术 PDF 的高频场景，对照 Zotero/SumatraPDF）。
+    //    判据不是「有没有文字」，而是 getSelectedTextRanges() 真的返回了**两个页**的区间。
+    await tester.pump(const Duration(milliseconds: 400));
+    var crossPage = false;
+    var crossPages = 0;
+    if (doc.pages.length >= 2) {
+      // 先把两页文本都预热进 pdfrx 的缓存，否则跨页端点会因异步加载而落空。
+      await page.loadStructuredText();
+      final page2 = doc.pages[1];
+      final text2 = await page2.loadStructuredText();
+      final pageRect2 = controller.layout.pageLayouts[1];
+      final startA = text.charRects.first
+          .toRectInDocument(page: page, pageRect: pageRect)
+          .center;
+      final endB = text2.charRects.last
+          .toRectInDocument(page: page2, pageRect: pageRect2)
+          .center;
+
+      selected = '';
+      final g = await tester.startGesture(
+        toViewport(startA),
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pump(const Duration(milliseconds: 20));
+      // 分多步移动，保证 pan 识别器接管并跨过两页
+      final from = toViewport(startA);
+      final to = toViewport(endB);
+      for (var i = 1; i <= 6; i++) {
+        final t = i / 6;
+        await g.moveTo(Offset(
+          from.dx + (to.dx - from.dx) * t,
+          from.dy + (to.dy - from.dy) * t,
+        ));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await g.up();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      final sel = controller.textSelectionDelegate;
+      final ranges = await sel.getSelectedTextRanges();
+      crossPages = ranges.map((r) => r.pageText.pageNumber).toSet().length;
+      crossPage = ranges.length >= 2 && crossPages >= 2;
+      debugPrint('[PDF-SEL] ④ 跨页选择 = $crossPage '
+          '（区间数=${ranges.length} 涉及页数=$crossPages）');
+    } else {
+      debugPrint('[PDF-SEL] ④ 跨页选择 = 跳过（夹具不足 2 页）');
+    }
+
     expect(
       direct,
       isTrue,
@@ -131,6 +179,14 @@ void main() {
       reason: '滚轮后立刻拖选选不中 ⇒ 被 pdfrx 的 300ms 交互守卫吞掉（补丁未生效）',
     );
     expect(delayed, isTrue, reason: '滚轮冷却窗过后仍选不中');
+
+    // 跨页选择：夹具 >1 页时必须真的跨页（对照 Zotero/SumatraPDF 的核心能力）。
+    expect(
+      doc.pages.length < 2 || crossPage,
+      isTrue,
+      reason: '跨页拖选没有同时覆盖两页（区间涉及页数=$crossPages）'
+          '⇒ 长段落跨页选择不可用',
+    );
   });
 }
 

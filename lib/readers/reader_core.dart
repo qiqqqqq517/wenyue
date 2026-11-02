@@ -72,6 +72,14 @@ abstract interface class ReaderHandle {
   void jumpToHit(SearchHit hit);
 
   void jumpTo(TocItem item);
+
+  /// 按文档整体进度（0..1）跳转（进度条 seek 用）。
+  void seekToFraction(double fraction);
+
+  /// 当前页数 / 章节数 / 字符流长度等换算所需的规模。
+  ///
+  /// 由各格式解释：PDF=总页数（未就绪 0）、EPUB=章节数、文本=plainText 长度。
+  int get seekScale;
 }
 
 /// 文本格式新建批注回调（锚点为字符流区间）。
